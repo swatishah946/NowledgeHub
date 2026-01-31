@@ -1,0 +1,62 @@
+/* Dashboard.css */
+.dashboard-page {
+    min-height: 100vh;
+    padding: 2rem;
+    /* Deep dark purple background */
+    background-color: #0f0c15;
+    /* The Cyber Grid Pattern */
+    background-image:
+        linear-gradient(rgba(200, 63, 107, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(200, 63, 107, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    /* Size of the grid squares */
+    background-position: center center;
+    position: relative;
+    /* overflow: hidden; Removed to allow scrolling if content overflows */
+}
+
+/* Optional: A spotlight effect following the mouse or fixed at top */
+.dashboard-page::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(138, 43, 226, 0.15), transparent 70%);
+    pointer-events: none;
+}
+
+.dashboard-header {
+    margin-bottom: 3rem;
+    text-align: center;
+    position: relative;
+    z-index: 2;
+}
+
+.dashboard-header h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+}
+
+.highlight-text {
+    background: linear-gradient(90deg, #c83f6b, #8A2BE2);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.dashboard-header p {
+    color: #b0b0b0;
+    font-size: 1.1rem;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    padding-bottom: 4rem;
+    position: relative;
+    z-index: 2;
+}

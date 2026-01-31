@@ -1,0 +1,105 @@
+/* Main Quiz Container */
+.quiz-container {
+    max-width: 800px;
+    margin: 2rem auto;
+    background: rgba(30, 25, 45, 0.6);
+    /* Glass background */
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+    padding: 3rem;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    text-align: center;
+}
+
+/* Quiz Form (Input + Button) */
+.quiz-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+/* Question Text */
+.quiz-question {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 2rem;
+    background: linear-gradient(to right, #fff, #e0e0e0);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.question-block {
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.question-block:last-child {
+    border-bottom: none;
+}
+
+/* Options Grid */
+.quiz-options {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Individual Option Button */
+.option-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    padding: 1.2rem;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+    text-align: left;
+    display: flex;
+    align-items: center;
+}
+
+/* Hover Effect */
+.option-btn:hover {
+    background: rgba(200, 63, 107, 0.2);
+    /* Primary color tint */
+    border-color: var(--primary-color);
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(200, 63, 107, 0.2);
+}
+
+/* Selected/Active State */
+.option-btn.selected {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 20px rgba(200, 63, 107, 0.6);
+}
+
+.option-btn.correct {
+    background-color: rgba(46, 204, 113, 0.2);
+    border-color: #2ecc71;
+    color: #2ecc71;
+    box-shadow: 0 0 15px rgba(46, 204, 113, 0.3);
+}
+
+.option-btn.incorrect {
+    background-color: rgba(231, 76, 60, 0.2);
+    border-color: #e74c3c;
+    color: #e74c3c;
+}
+
+.option-radio {
+    margin-right: 12px;
+    accent-color: var(--primary-color);
+}
+
+.results-block {
+    margin-top: 2rem;
+    padding: 2rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+}

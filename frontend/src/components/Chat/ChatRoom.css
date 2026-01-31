@@ -1,0 +1,143 @@
+/* ChatRoom.css */
+.chat-wrapper {
+    max-width: 900px;
+    margin: 2rem auto;
+}
+
+.chat-header {
+    margin-bottom: 1.5rem;
+}
+
+.chat-header h2 {
+    color: var(--primary-color);
+}
+
+.chat-header p {
+    color: var(--text-secondary);
+}
+
+.chat-messages-container {
+    height: 500px;
+    overflow-y: scroll;
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    background: rgba(0, 0, 0, 0.2);
+    /* Slightly darker for contrast */
+}
+
+/* Custom Scrollbar for Chat */
+.chat-messages-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-messages-container::-webkit-scrollbar-thumb {
+    background-color: var(--border-glass);
+    border-radius: 4px;
+}
+
+.date-separator {
+    text-align: center;
+    margin: 1rem 0;
+    position: relative;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.date-separator::before,
+.date-separator::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 40%;
+    height: 1px;
+    background: var(--border-glass);
+}
+
+.date-separator::before {
+    left: 0;
+}
+
+.date-separator::after {
+    right: 0;
+}
+
+.message-row {
+    display: flex;
+    width: 100%;
+}
+
+.message-row.own-message {
+    justify-content: flex-end;
+}
+
+.message-row.other-message {
+    justify-content: flex-start;
+}
+
+.message-bubble {
+    max-width: 70%;
+    padding: 1rem 1.25rem;
+    border-radius: 18px;
+    position: relative;
+    word-wrap: break-word;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.own-message .message-bubble {
+    background: linear-gradient(135deg, var(--primary-color), #a01a50);
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.other-message .message-bubble {
+    background: rgba(255, 255, 255, 0.08);
+    /* Frosted glass bubble */
+    border: 1px solid var(--border-glass);
+    color: var(--text-primary);
+    border-bottom-left-radius: 4px;
+}
+
+.message-sender {
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.own-message .message-sender {
+    text-align: right;
+    display: none;
+    /* Hide 'You' label optionally */
+}
+
+.message-text {
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.message-time {
+    font-size: 0.7rem;
+    margin-top: 0.5rem;
+    opacity: 0.6;
+    text-align: right;
+}
+
+.chat-input-form {
+    display: flex;
+    gap: 1rem;
+}
+
+.chat-input {
+    flex-grow: 1;
+    margin-bottom: 0;
+    /* Override default input margin */
+}
+
+.chat-input-form button {
+    padding: 0 2rem;
+    flex-shrink: 0;
+}

@@ -1,0 +1,136 @@
+/* AiAssistant.css */
+.ai-assistant-container {
+    padding: 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.ai-header {
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.ai-header h2 {
+    color: var(--primary-color);
+    font-size: 2rem;
+}
+
+.ai-header p {
+    color: var(--text-secondary);
+}
+
+.ai-input-form {
+    margin-bottom: 2rem;
+}
+
+.ai-textarea {
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid var(--border-glass);
+    border-radius: 12px;
+    background: rgba(20, 20, 20, 0.6);
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-family: 'Inter', sans-serif;
+    resize: vertical;
+    transition: all 0.3s ease;
+    margin-bottom: 1rem;
+}
+
+.ai-textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 15px rgba(200, 63, 107, 0.2);
+}
+
+.button-group {
+    display: flex;
+    gap: 1rem;
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-glass);
+    padding: 12px 28px;
+    border-radius: 50px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+.suggested-section {
+    margin-bottom: 2rem;
+}
+
+.suggested-section h4 {
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+.tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.tag-btn {
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-glass);
+    border-radius: 20px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.tag-btn:hover {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+    transform: translateY(-2px);
+}
+
+.response-card {
+    margin-top: 2rem;
+    padding: 2rem;
+    background: rgba(30, 25, 45, 0.4);
+    border: 1px solid var(--border-glass);
+    border-radius: 16px;
+    backdrop-filter: blur(10px);
+}
+
+.response-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.error-card {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: rgba(231, 76, 60, 0.1);
+    border: 1px solid #e74c3c;
+    border-radius: 12px;
+    color: #e74c3c;
+}
+
+.loading-card {
+    margin-top: 2rem;
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 12px;
+}

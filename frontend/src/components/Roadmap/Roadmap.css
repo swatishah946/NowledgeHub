@@ -1,0 +1,98 @@
+/* Roadmap.css */
+.roadmap-container {
+    max-width: 800px;
+    margin: 0 auto;
+    position: relative;
+    padding: 40px 0;
+}
+
+/* The central vertical line */
+.roadmap-container::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    /* Or 50% for centered timeline */
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--primary-color), var(--bg-dark));
+}
+
+/* Each Roadmap Item Card */
+.roadmap-item {
+    position: relative;
+    margin-left: 60px;
+    /* Space for the line */
+    margin-bottom: 40px;
+    background: rgba(42, 36, 61, 0.7);
+    /* Glass */
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 2.5rem;
+    transition: transform 0.3s ease;
+}
+
+.roadmap-item:hover {
+    transform: translateX(10px);
+    border-color: var(--secondary-color);
+    background: rgba(42, 36, 61, 0.9);
+}
+
+/* The Glowing Dot on the line */
+.roadmap-item::before {
+    content: '';
+    position: absolute;
+    left: -50px;
+    /* Align with the main line */
+    top: 25px;
+    width: 20px;
+    height: 20px;
+    background: var(--bg-dark);
+    border: 3px solid var(--primary-color);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--primary-color);
+    z-index: 2;
+}
+
+/* Connector line from dot to card */
+.roadmap-item::after {
+    content: '';
+    position: absolute;
+    left: -30px;
+    top: 32px;
+    width: 30px;
+    height: 2px;
+    background: var(--primary-color);
+    opacity: 0.5;
+}
+
+.roadmap-title {
+    color: var(--primary-color);
+    font-size: 1.4rem;
+    margin-bottom: 0.5rem;
+}
+
+.roadmap-description {
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.roadmap-form-container {
+    max-width: 600px;
+    margin: 0 auto;
+    background: rgba(30, 25, 45, 0.6);
+    padding: 2.5rem;
+    border-radius: 20px;
+    border: 1px solid var(--border-glass);
+    text-align: center;
+}
+
+.roadmap-form-container h2 {
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+}
+
+.roadmap-form-container input {
+    margin-bottom: 1.5rem;
+}

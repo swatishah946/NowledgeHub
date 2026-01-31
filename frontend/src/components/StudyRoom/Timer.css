@@ -1,0 +1,16 @@
+.timer-card {
+    text-align: center;
+    max-width: 400px;
+    margin: 2rem auto;
+}
+
+.timer-display {
+    font-size: 3rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin: 1rem 0 2rem;
+}
+
+.timer-controls button {
+    margin: 0 0.5rem;
+}
