@@ -10,9 +10,9 @@ if (!process.env.GEMINI_API_KEY) {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // 1. Chat Model
-// UPDATED: Using 'gemini-2.5-flash' as 1.5 is deprecated
+// UPDATED: Switching to 'gemini-1.5-flash' for better quota limits
 const chatModel = genAI.getGenerativeModel({ 
-    model: "gemini-2.5-flash", 
+    model: "gemini-1.5-flash", 
     safetySettings: [
         { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
     ]
@@ -64,9 +64,8 @@ const quizSchema = {
 };
 
 // 3. Structured Output Models
-// UPDATED: Using 'gemini-2.5-flash'
 const roadmapModel = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-1.5-flash",
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: roadmapSchema,
@@ -74,7 +73,7 @@ const roadmapModel = genAI.getGenerativeModel({
 });
   
 const quizModel = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-1.5-flash",
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: quizSchema,
@@ -84,10 +83,21 @@ const quizModel = genAI.getGenerativeModel({
 /**
  * ✅ AI ChatBot
  */
-export const aiChatBot = async (query) => {
+/**
+ * ✅ AI ChatBot (History Aware)
+ * @param {string} query - Current user message
+ * @param {Array} history - Previous conversation history [{ role: 'user'|'model', parts: [{ text: '' }] }]
+ */
+export const aiChatBot = async (query, history = []) => {
     try {
-        const prompt = `You are a helpful AI study assistant. Answer this student query: "${query}"`;
-        const result = await chatModel.generateContent(prompt);
+        const chat = chatModel.startChat({
+            history: history,
+            generationConfig: {
+                maxOutputTokens: 8192, // Increased from 1000 to prevent truncation
+            },
+        });
+
+        const result = await chat.sendMessage(query);
         return result.response.text();
     } catch (error) {
         console.error("❌ Gemini Chat Error:", error);

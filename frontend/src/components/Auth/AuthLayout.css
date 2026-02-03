@@ -1,0 +1,144 @@
+/* AuthLayout.css */
+
+/* Full Screen Container */
+.auth-screen {
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    background: #0f0c15;
+    /* Fallback color */
+}
+
+/* Texture Overlay: Adds a "Tech Grid" on top of the Fog */
+.auth-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    /* Vignette: Darkens the edges so the center card shines */
+    background: radial-gradient(circle at center, rgba(0, 0, 0, 0) 0%, rgba(15, 12, 21, 0.8) 100%);
+    /* Subtle Grid Pattern */
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+    pointer-events: none;
+}
+
+/* The Glass Card (Floating Monolith) */
+.auth-card {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 420px;
+    padding: 2.5rem;
+
+    /* Frosted Glass Effect */
+    background: rgba(30, 25, 45, 0.65);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+
+    /* Borders & Glow */
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    /* Top highlight */
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+
+    /* Float Animation */
+    animation: floatUp 0.8s ease-out;
+}
+
+@keyframes floatUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Typography */
+.brand-logo {
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin-bottom: 1.5rem;
+    background: linear-gradient(90deg, #fff, #c83f6b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.auth-header h2 {
+    color: white;
+    font-size: 1.5rem;
+    margin-bottom: 0.7rem;
+}
+
+.auth-header p {
+    color: #a0a0a0;
+    font-size: 0.9rem;
+    margin-bottom: 0.8rem;
+}
+
+/* Inputs */
+.auth-input {
+    width: 100%;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.2);
+    /* Darker input bg */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: white;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    margin-top: 0.5rem;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+.auth-input:focus {
+    border-color: #c83f6b;
+    background: rgba(0, 0, 0, 0.4);
+    box-shadow: 0 0 0 3px rgba(200, 63, 107, 0.1);
+}
+
+/* Button */
+.auth-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #c83f6b 0%, #8A2BE2 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-top: 1rem;
+}
+
+.auth-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(200, 63, 107, 0.3);
+}
+
+.auth-footer {
+    margin-top: 1.5rem;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #8b949e;
+}
+
+.highlight-link {
+    color: #c83f6b;
+    text-decoration: none;
+    font-weight: 600;
+}

@@ -1,0 +1,123 @@
+.history-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 300px;
+    height: 100vh;
+    background: rgba(15, 12, 21, 0.95);
+    border-right: 1px solid var(--border-glass);
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    padding-top: 60px;
+    /* Space for navbar/close btn */
+}
+
+.history-sidebar.open {
+    transform: translateX(0);
+}
+
+.sidebar-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sidebar-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: var(--text-primary);
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+.history-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+}
+
+.history-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.history-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.history-item.active {
+    background: rgba(200, 63, 107, 0.1);
+    /* Brand Pink tint */
+    border-color: var(--primary-color);
+}
+
+.history-content {
+    flex: 1;
+    overflow: hidden;
+}
+
+.history-title {
+    display: block;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 0.3rem;
+}
+
+.history-meta {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.delete-btn {
+    background: none;
+    border: none;
+    color: #e74c3c;
+    opacity: 0;
+    transition: opacity 0.2s;
+    padding: 4px;
+    cursor: pointer;
+}
+
+.history-item:hover .delete-btn {
+    opacity: 1;
+}
+
+/* Sidebar Toggle Button (Floating) */
+.sidebar-toggle-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 900;
+    background: rgba(20, 20, 20, 0.8);
+    border: 1px solid var(--border-glass);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}

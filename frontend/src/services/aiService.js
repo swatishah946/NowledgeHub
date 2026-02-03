@@ -1,14 +1,76 @@
 import API from './api';
 
-export const askAI = async (query) => {
+// ... (existing exports)
+
+/**
+ * Perform Deep Research
+ * @param {string} query 
+ * @param {string} sessionId (Optional)
+ * @param {string} userId (Optional)
+ */
+export const askDeepResearch = async (query, sessionId, userId) => {
   try {
-    const { data } = await API.post('/ai/chat', { query });
+    const { data } = await API.post('/ai/research', { query, sessionId, userId });
+    if (data.status === 'success') {
+      return data.response; // Returns Markdown report
+    }
+    throw new Error(data.error || 'Research failed.');
+  } catch (err) {
+    throw new Error(err.response?.data?.error || err.message || 'Research failed.');
+  }
+};
+
+/**
+ * Fetch User History
+ * @param {string} userId (Optional)
+ * @param {string} mode (Optional) - 'chat', 'research', 'pdf'
+ */
+export const getUserHistory = async (userId, mode) => {
+  try {
+    const { data } = await API.get(`/ai/history`, { params: { userId, mode } });
+    return data;
+  } catch (err) {
+    console.error("Failed to fetch history:", err);
+    return [];
+  }
+};
+
+/**
+ * Delete a Session
+ * @param {string} sessionId 
+ */
+export const deleteSession = async (sessionId) => {
+  try {
+    await API.delete(`/ai/history/${sessionId}`);
+    return true;
+  } catch (err) {
+    throw new Error(err.response?.data?.error || 'Failed to delete session.');
+  }
+};
+
+/**
+ * Get Full Session Details
+ * @param {string} sessionId 
+ */
+export const getSession = async (sessionId) => {
+    try {
+        const { data } = await API.get(`/ai/history/${sessionId}`);
+        return data;
+    } catch (err) {
+        console.error("Failed to fetch session:", err);
+        return null; // Return null if not found
+    }
+};
+
+// Update askAI to include sessionId for memory
+export const askAI = async (query, sessionId, type) => {
+  try {
+    const { data } = await API.post('/ai/chat', { query, sessionId, type });
     if (data.status === 'success' && data.response) {
-      return data.response; // Return only the AI's text response
+      return data.response; 
     }
     throw new Error(data.error || 'AI request failed with no error message.');
   } catch (err) {
-    // Re-throw the error to be caught by the component
     throw new Error(err.response?.data?.error || err.message || 'An unknown error occurred.');
   }
 };
