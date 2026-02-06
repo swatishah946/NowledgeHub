@@ -2,8 +2,7 @@
 
 **NowledgeHub** is an advanced, AI-powered collaborative learning platform designed to revolutionize how students study. It combines real-time collaboration with cutting-edge Generative AI to provide personalized tutoring, deep research capabilities, and interactive study tools.
 
-[![Frontend](https://nowledgehub.vercel.app/)](https://nowledgehub.vercel.app/) 
-[![Backend](https://nowledgehub.onrender.com)](https://nowledgehub.onrender.com/)
+🚀 **Try Live:** [Frontend](https://nowledgehub.vercel.app/) | [Backend API](https://nowledgehub.onrender.com/)  
 
 <img src="./screenshots/homepage.png" alt="nowledgeHub Banner" width="800">
 
