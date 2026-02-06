@@ -2,6 +2,9 @@
 
 **NowledgeHub** is an advanced, AI-powered collaborative learning platform designed to revolutionize how students study. It combines real-time collaboration with cutting-edge Generative AI to provide personalized tutoring, deep research capabilities, and interactive study tools.
 
+[![Frontend](https://nowledgehub.vercel.app/)](https://nowledgehub.vercel.app/) 
+[![Backend](https://nowledgehub.onrender.com)](https://nowledgehub.onrender.com/)
+
 <img src="./screenshots/homepage.png" alt="nowledgeHub Banner" width="800">
 
 
@@ -109,7 +112,7 @@
 ### Frontend (Vercel/Netlify)
 1. Push code to GitHub.
 2. Import repository to Vercel.
-3. Set Environment Variable: `REACT_APP_API_URL` = `https://your-backend-url.onrender.com` (or wherever backend is hosted).
+3. Set Environment Variable: `REACT_APP_API_URL` = `https://nowledgehub.onrender.com/` (or wherever backend is hosted).
 4. Deploy!
 
 ### Backend (Render/Heroku/Railway)
