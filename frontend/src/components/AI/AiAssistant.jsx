@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { askAI, askDeepResearch, getSession, uploadPDF, askPDF } from '../../services/aiService';
 import { downloadMarkdown } from '../../utils/fileUtils';
-import { FaDownload, FaFilePdf, FaUpload } from 'react-icons/fa';
+import { FaDownload, FaFilePdf } from 'react-icons/fa';
 import AIResponse from '../Chat/AIResponse';
 import HistorySidebar from './HistorySidebar';
 import ModeSwitcher from './ModeSwitcher';
