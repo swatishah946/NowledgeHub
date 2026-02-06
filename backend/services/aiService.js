@@ -1,4 +1,5 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { tavily } from "@tavily/core";
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -9,7 +10,7 @@ if (!process.env.GEMINI_API_KEY) {
 
 // 1. Chat Model (LangChain)
 const chatModel = new ChatGoogleGenerativeAI({
-    model: "gemini-1.5-flash", // Using 1.5-flash via LangChain
+    model: "gemini-2.5-flash", // Using 2.5-flash via LangChain
     maxOutputTokens: 8192,
     apiKey: process.env.GEMINI_API_KEY
 });
@@ -73,3 +74,41 @@ export const generateRoadmap = async (goal) => {
     }
 };
 
+/**
+ * ✅ Deep Research Agent
+ */
+export const deepResearch = async (topic) => {
+    try {
+        console.log(`🔎 Researching: ${topic}`);
+        
+        // 1. Search Web with Tavily
+        const tvly = tavily({ apiKey: process.env.TAVILY_API_KEY });
+        const searchResult = await tvly.search(topic, {
+            search_depth: "advanced",
+            max_results: 5,
+        });
+
+        // 2. Synthesize with Gemini
+        const context = searchResult.results.map(r => `[${r.title}](${r.url}): ${r.content}`).join("\n\n");
+        
+        const prompt = `You are a Deep Research Agent. Write a comprehensive report on: "${topic}".
+        
+        Use the following real-time web search results as your primary source:
+        ${context}
+
+        Structure the report with markdown:
+        - Introduction
+        - Key Findings
+        - Detailed Analysis
+        - Conclusion
+        - References (Citations)
+        `;
+
+        const response = await chatModel.invoke(prompt);
+        return response.content;
+
+    } catch (error) {
+        console.error("❌ Deep Research Error:", error);
+        throw new Error("Failed to conduct research. Ensure TAVILY_API_KEY is set.");
+    }
+};

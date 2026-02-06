@@ -2,7 +2,8 @@
 
 **NowledgeHub** is an advanced, AI-powered collaborative learning platform designed to revolutionize how students study. It combines real-time collaboration with cutting-edge Generative AI to provide personalized tutoring, deep research capabilities, and interactive study tools.
 
-![NowledgeHub Banner](E:\vs_code\ai learning\AI-Learning-Platform\screenshots\homepage.png) *<!-- Replace with actual screenshot -->*
+<img src="./screenshots/homepage.png" alt="nowledgeHub Banner" width="800">
+
 
 ---
 
@@ -123,9 +124,8 @@
 
 ## 🔮 Future Improvements
 - [ ] Voice Mode for AI interaction.
-- [ ] Mobile App (React Native).
+- [ ] Dynamic RAG System
 - [ ] File sharing in Study Rooms.
-- [ ] Video Chat (WebRTC).
 
 ---
 
