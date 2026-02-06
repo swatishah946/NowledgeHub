@@ -48,6 +48,39 @@ export const deleteSession = async (sessionId) => {
   }
 };
 
+// ... (existing exports)
+
+/**
+ * Upload PDF for RAG
+ * @param {File} file 
+ */
+export const uploadPDF = async (file) => {
+    try {
+        const formData = new FormData();
+        formData.append('pdf', file);
+        
+        const { data } = await API.post('/study/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return data;
+    } catch (err) {
+        throw new Error(err.response?.data?.error || 'Failed to upload PDF.');
+    }
+};
+
+/**
+ * Ask PDF (RAG Chat)
+ * @param {string} query 
+ */
+export const askPDF = async (query) => {
+    try {
+        const { data } = await API.post('/study/ask', { query });
+        return data.response;
+    } catch (err) {
+        throw new Error(err.response?.data?.error || 'Failed to get answer from PDF.');
+    }
+};
+
 /**
  * Get Full Session Details
  * @param {string} sessionId 

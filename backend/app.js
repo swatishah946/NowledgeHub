@@ -6,6 +6,7 @@ import authRoutes from "./routes/authRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
 
 import chatRoutes from "./routes/chatRoutes.js";
+import studyRoutes from "./routes/studyRoutes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
 
@@ -26,6 +27,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/ai", aiRoutes);
 
 app.use("/api/chat", chatRoutes);
+app.use("/api/study", studyRoutes);
 
 // ✅ Health Check Route
 app.get("/", (req, res) => res.send("✅ API is running"));

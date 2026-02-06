@@ -1,9 +1,8 @@
-const API_URL = process.env.REACT_APP_API_URL;
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-if (!API_URL) {
+if (!process.env.REACT_APP_API_URL) {
   console.warn(
-    "Warning: REACT_APP_API_URL is not defined in your .env file. Defaulting to http://localhost:5000. " +
-    "Please create a .env file in the root of your frontend project and add REACT_APP_API_URL=http://your_backend_url"
+    "Notice: REACT_APP_API_URL is not set. Defaulting to local backend at http://localhost:5000."
   );
 }
 
