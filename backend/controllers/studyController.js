@@ -107,7 +107,7 @@ export const uploadPDF = async (req, res) => {
         console.log(`✅ Text Extracted: ${rawText.length} characters in ${extractDuration}ms`);
 
         // ✅ STEP 2: Split into Chunks
-        const chunking StartTime = Date.now();
+        const chunkingStartTime = Date.now();
         const splitter = new RecursiveCharacterTextSplitter({
             chunkSize: 800,
             chunkOverlap: 200,
