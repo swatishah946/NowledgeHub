@@ -1,68 +1,120 @@
-import React, { useState, useEffect } from 'react';
-import { askAI, askDeepResearch, getSession, uploadPDF, askPDF } from '../../services/aiService';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+    askAI,
+    askDeepResearch,
+    getSession,
+    uploadPDF,
+    askPDF,
+    listDocuments,
+    deleteDocument,
+} from '../../services/aiService';
 import { downloadMarkdown } from '../../utils/fileUtils';
-import { FaDownload, FaFilePdf } from 'react-icons/fa';
+import { loadSessionIds, saveSessionIds, newSessionId } from '../../utils/session';
+import { FaDownload, FaFilePdf, FaTrash, FaPlus } from 'react-icons/fa';
 import AIResponse from '../Chat/AIResponse';
 import HistorySidebar from './HistorySidebar';
 import ModeSwitcher from './ModeSwitcher';
 import './AiAssistant.css';
 
+const EMPTY_THREADS = { chat: [], pdf: [], research: [] };
+const TYPE_TO_MODE = { chat: 'chat', research: 'research', 'pdf-chat': 'pdf' };
+
+const suggestedQuestions = [
+    'What is JavaScript?',
+    'How do I learn machine learning?',
+    'Explain React components',
+    'What is the difference between Python and Java?',
+    'How to learn web development?',
+];
+
+const SourceList = ({ sources }) => {
+    if (!sources?.length) return null;
+    return (
+        <div className="source-list">
+            <strong>Sources:</strong>
+            <ul>
+                {sources.map((s, i) => (
+                    <li key={`${s.source}-${s.page}-${i}`} title={s.preview}>
+                        📄 {s.source}
+                        {s.page ? `, page ${s.page}` : ''}
+                        {typeof s.score === 'number' ? ` · match ${(s.score * 100).toFixed(0)}%` : ''}
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+};
+
 const AiAssistant = () => {
     const [mode, setMode] = useState('chat'); // 'chat' | 'pdf' | 'research'
-
-    // Separate states for each mode
-    const [queries, setQueries] = useState({ chat: '', pdf: '', research: '' });
-    const [responses, setResponses] = useState({ chat: '', pdf: '', research: '' });
-
-    // Derived values for current mode
-    const query = queries[mode];
-    const response = responses[mode];
-
-    // Helper setters for current mode (to minimize code changes in logic)
-    const setQuery = (val) => setQueries(prev => ({ ...prev, [mode]: val }));
-    const setResponse = (val) => setResponses(prev => ({ ...prev, [mode]: val }));
-    const [sessionId, setSessionId] = useState(null);
+    const [inputs, setInputs] = useState({ chat: '', pdf: '', research: '' });
+    const [threads, setThreads] = useState(EMPTY_THREADS);
+    const [sessionIds, setSessionIds] = useState(loadSessionIds);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-    // Restored missing states
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
     const [msg, setMsg] = useState('');
 
+    const [documents, setDocuments] = useState([]);
+    const [selectedSource, setSelectedSource] = useState('');
+    const bottomRef = useRef(null);
+
+    const query = inputs[mode];
+    const thread = threads[mode];
+    const setQuery = (value) => setInputs((prev) => ({ ...prev, [mode]: value }));
+    const addMessage = (targetMode, message) =>
+        setThreads((prev) => ({ ...prev, [targetMode]: [...prev[targetMode], message] }));
+
     useEffect(() => {
-        // Initialize Session ID
-        let sid = localStorage.getItem('ai_session_id');
-        if (!sid) {
-            sid = 'session-' + Date.now();
-            localStorage.setItem('ai_session_id', sid);
+        saveSessionIds(sessionIds);
+    }, [sessionIds]);
+
+    useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, [threads, mode]);
+
+    const refreshDocuments = useCallback(async () => {
+        try {
+            const docs = await listDocuments();
+            setDocuments(docs);
+            setSelectedSource((current) => (docs.some((d) => d.source === current) ? current : ''));
+        } catch (err) {
+            console.error('Failed to load documents', err);
         }
-        setSessionId(sid);
     }, []);
+
+    useEffect(() => {
+        if (mode === 'pdf') refreshDocuments();
+    }, [mode, refreshDocuments]);
 
     const handleAskAI = async (e) => {
         e.preventDefault();
-        if (!query.trim()) {
+        const text = query.trim();
+        if (!text) {
             setError('Please enter a query.');
             return;
         }
 
+        const currentMode = mode;
+        const sessionId = sessionIds[currentMode];
         setLoading(true);
-        setResponse('');
         setError('');
+        setQuery('');
+        addMessage(currentMode, { role: 'user', content: text });
 
         try {
-            let aiResponse;
-            if (mode === 'research') {
-                aiResponse = await askDeepResearch(query.trim(), sessionId);
-            } else if (mode === 'pdf') {
-                aiResponse = await askPDF(query.trim());
+            if (currentMode === 'research') {
+                const { response } = await askDeepResearch(text, sessionId);
+                addMessage(currentMode, { role: 'model', content: response });
+            } else if (currentMode === 'pdf') {
+                const { response, sources } = await askPDF(text, sessionId, selectedSource || undefined);
+                addMessage(currentMode, { role: 'model', content: response, sources });
             } else {
-                // Map 'pdf' mode to 'pdf-chat' for backend, default 'chat'
-                const type = mode === 'pdf' ? 'pdf-chat' : 'chat';
-                aiResponse = await askAI(query.trim(), sessionId, type);
+                const response = await askAI(text, sessionId);
+                addMessage(currentMode, { role: 'model', content: response });
             }
-            setResponse(aiResponse);
         } catch (err) {
             console.error('AI request error:', err);
             setError(err.message || 'AI request failed');
@@ -73,91 +125,68 @@ const AiAssistant = () => {
 
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
+        e.target.value = ''; // allow re-selecting the same file later
         if (!file) return;
 
         setUploading(true);
         setMsg('');
         setError('');
-
         try {
-            await uploadPDF(file);
-            setMsg('✅ PDF Indexed! Ask me anything.');
+            const result = await uploadPDF(file);
+            const info = result?.data;
+            setMsg(`✅ ${info?.fileName || file.name} indexed (${info?.pages ?? '?'} pages, ${info?.chunksCreated ?? '?'} chunks). Ask me anything!`);
+            await refreshDocuments();
         } catch (err) {
-            setError('Failed to upload PDF.');
-            console.error(err);
+            setError(err.message || 'Failed to upload PDF.');
         } finally {
             setUploading(false);
         }
     };
 
-    const handleClearChat = () => {
-        setQuery('');
-        setResponse('');
-        setError('');
-        // Optional: Generate new session ID for a fresh start
-        // const newSid = 'session-' + Date.now();
-        // localStorage.setItem('ai_session_id', newSid);
-        // setSessionId(newSid);
+    const handleDeleteDocument = async (source) => {
+        if (!window.confirm(`Remove "${source}" from your documents?`)) return;
+        try {
+            await deleteDocument(source);
+            await refreshDocuments();
+        } catch (err) {
+            setError(err.message);
+        }
     };
 
-    const suggestedQuestions = [
-        "What is JavaScript?",
-        "How do I learn machine learning?",
-        "Explain React components",
-        "What is the difference between Python and Java?",
-        "How to learn web development?"
-    ];
-
-    const handleSuggestedQuestion = (question) => {
-        setQuery(question);
-        setResponse('');
+    const handleNewConversation = () => {
+        setSessionIds((prev) => ({ ...prev, [mode]: newSessionId() }));
+        setThreads((prev) => ({ ...prev, [mode]: [] }));
+        setQuery('');
         setError('');
     };
 
     const handleSelectSession = async (session) => {
-        console.log("Selected Session:", session);
-        const targetMode = session.type === 'research' ? 'research' : 'chat';
-
-        setSessionId(session.sessionId);
+        const targetMode = TYPE_TO_MODE[session.type] || 'chat';
         setMode(targetMode);
         setIsSidebarOpen(false);
-
-        // Reset query/response for the target mode before loading
-        setQueries(prev => ({ ...prev, [targetMode]: '' }));
-        setResponses(prev => ({ ...prev, [targetMode]: '' }));
-
-        // Fetch full session details
+        setError('');
         setLoading(true);
         try {
-            console.log("Fetching full session details for:", session.sessionId);
             const fullSession = await getSession(session.sessionId);
-            console.log("Full Session Data:", fullSession);
-
-            if (fullSession && fullSession.messages && fullSession.messages.length > 0) {
-                // Try to find the last AI response to show
-                const lastAiMsg = [...fullSession.messages].reverse().find(m => m.role === 'model');
-                if (lastAiMsg) {
-                    setResponses(prev => ({ ...prev, [targetMode]: lastAiMsg.content }));
-
-                    const lastUserMsg = [...fullSession.messages].reverse().find(m => m.role === 'user');
-                    if (lastUserMsg) {
-                        setQueries(prev => ({ ...prev, [targetMode]: lastUserMsg.content }));
-                    }
-                } else {
-                    console.warn("No AI message found in session.");
-                    setResponses(prev => ({ ...prev, [targetMode]: "Session loaded, but no AI response found." }));
-                }
-            } else {
-                console.warn("Session found but has no messages or is invalid.");
-                setResponses(prev => ({ ...prev, [targetMode]: "Empty session loaded." }));
-            }
+            if (!fullSession) throw new Error('Session not found');
+            setSessionIds((prev) => ({ ...prev, [targetMode]: session.sessionId }));
+            setThreads((prev) => ({
+                ...prev,
+                [targetMode]: (fullSession.messages || []).map((m) => ({
+                    role: m.role === 'user' ? 'user' : 'model',
+                    content: m.content,
+                    sources: m.metadata?.sources && targetMode === 'pdf' ? m.metadata.sources : undefined,
+                })),
+            }));
         } catch (err) {
-            console.error("Error loading session:", err);
-            setError("Failed to load session details.");
+            console.error('Error loading session:', err);
+            setError('Failed to load session details.');
         } finally {
             setLoading(false);
         }
     };
+
+    const lastModelMessage = [...thread].reverse().find((m) => m.role === 'model');
 
     return (
         <div className="ai-assistant-container glass-card">
@@ -168,10 +197,7 @@ const AiAssistant = () => {
                 activeMode={mode}
             />
 
-            <button
-                className="sidebar-toggle-btn"
-                onClick={() => setIsSidebarOpen(true)}
-            >
+            <button className="sidebar-toggle-btn" onClick={() => setIsSidebarOpen(true)}>
                 📜 History
             </button>
 
@@ -184,11 +210,11 @@ const AiAssistant = () => {
             {mode === 'pdf' && (
                 <div className="pdf-upload-section">
                     <label className="pdf-dropzone glass-card">
-                        <input type="file" accept="application/pdf" onChange={handleFileUpload} hidden />
+                        <input type="file" accept="application/pdf" onChange={handleFileUpload} hidden disabled={uploading} />
                         <div className="dropzone-content">
                             <FaFilePdf className="pdf-icon" />
                             {uploading ? (
-                                <p>⏳ Indexing PDF... This may take a few seconds.</p>
+                                <p>⏳ Indexing PDF... large files can take a minute.</p>
                             ) : msg ? (
                                 <p className="success-msg">{msg}</p>
                             ) : (
@@ -196,69 +222,62 @@ const AiAssistant = () => {
                             )}
                         </div>
                     </label>
+
+                    {documents.length > 0 && (
+                        <div className="document-list">
+                            <label>
+                                Ask about:{' '}
+                                <select value={selectedSource} onChange={(e) => setSelectedSource(e.target.value)}>
+                                    <option value="">All my documents</option>
+                                    {documents.map((d) => (
+                                        <option key={d.source} value={d.source}>
+                                            {d.source}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                            <ul>
+                                {documents.map((d) => (
+                                    <li key={d.source}>
+                                        <span>
+                                            📄 {d.source}
+                                            {d.pageCount ? ` · ${d.pageCount} pages` : ''} · {d.chunks} chunks
+                                        </span>
+                                        <button type="button" className="doc-delete-btn" onClick={() => handleDeleteDocument(d.source)} title="Remove document">
+                                            <FaTrash />
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                 </div>
             )}
 
-            <form onSubmit={handleAskAI} className="ai-input-form">
-                <textarea
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder={
-                        mode === 'research' ? "Enter a topic for deep research..." :
-                            mode === 'pdf' ? "Ask questions about your PDF..." :
-                                "Ask any study-related query..."
-                    }
-                    rows={4}
-                    className="ai-textarea"
-                    required
-                />
-                <div className="button-group">
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="btn-primary"
-                    >
-                        {loading ? (mode === 'research' ? '🔎 Researching...' : '🤖 Thinking...') : (mode === 'research' ? '🌍 Research' : 'Ask AI')}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handleClearChat}
-                        className="btn-secondary"
-                    >
-                        Clear
-                    </button>
-                </div>
-            </form>
-
-            <div className="suggested-section">
-                <h4>💡 Suggested Questions:</h4>
-                <div className="tags-container">
-                    {suggestedQuestions.map((question, index) => (
-                        <button
-                            key={index}
-                            onClick={() => handleSuggestedQuestion(question)}
-                            className="tag-btn"
-                        >
-                            {question}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {response && (
-                <div className="response-card">
-                    <div className="response-header">
-                        <span>{mode === 'research' ? '🌍' : '🤖'}</span> {mode === 'research' ? 'Deep Research Report:' : 'AI Response:'}
-                    </div>
-                    <AIResponse content={response} />
-                    {mode === 'research' && (
-                        <button
-                            className="download-report-btn"
-                            onClick={() => downloadMarkdown(response, `Deep_Research_${new Date().toISOString().slice(0, 10)}.md`)}
-                        >
-                            <FaDownload /> Download Report
-                        </button>
+            {thread.length > 0 && (
+                <div className="conversation">
+                    {thread.map((m, i) =>
+                        m.role === 'user' ? (
+                            <div key={i} className="user-message">
+                                {m.content}
+                            </div>
+                        ) : (
+                            <div key={i} className="response-card">
+                                <div className="response-header">
+                                    <span>{mode === 'research' ? '🌍' : '🤖'}</span>{' '}
+                                    {mode === 'research' ? 'Deep Research Report:' : 'AI Response:'}
+                                </div>
+                                <AIResponse content={m.content} />
+                                <SourceList sources={m.sources} />
+                            </div>
+                        )
                     )}
+                </div>
+            )}
+
+            {loading && (
+                <div className="loading-card">
+                    <p>{mode === 'research' ? '🔎 Searching the web and writing your report...' : '🤖 Thinking... Please wait'}</p>
                 </div>
             )}
 
@@ -268,11 +287,59 @@ const AiAssistant = () => {
                 </div>
             )}
 
-            {loading && (
-                <div className="loading-card">
-                    <p>🤖 Thinking... Please wait</p>
+            <form onSubmit={handleAskAI} className="ai-input-form">
+                <textarea
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey && !loading) handleAskAI(e);
+                    }}
+                    placeholder={
+                        mode === 'research'
+                            ? 'Enter a topic for deep research...'
+                            : mode === 'pdf'
+                              ? 'Ask questions about your PDFs...'
+                              : 'Ask any study-related query... (Shift+Enter for a new line)'
+                    }
+                    rows={4}
+                    maxLength={5000}
+                    className="ai-textarea"
+                    required
+                />
+                <div className="button-group">
+                    <button type="submit" disabled={loading} className="btn-primary">
+                        {loading ? (mode === 'research' ? '🔎 Researching...' : '🤖 Thinking...') : mode === 'research' ? '🌍 Research' : 'Ask AI'}
+                    </button>
+                    <button type="button" onClick={handleNewConversation} className="btn-secondary" disabled={loading}>
+                        <FaPlus /> New conversation
+                    </button>
+                    {mode === 'research' && lastModelMessage && (
+                        <button
+                            type="button"
+                            className="download-report-btn"
+                            onClick={() =>
+                                downloadMarkdown(lastModelMessage.content, `Deep_Research_${new Date().toISOString().slice(0, 10)}.md`)
+                            }
+                        >
+                            <FaDownload /> Download Report
+                        </button>
+                    )}
+                </div>
+            </form>
+
+            {mode === 'chat' && thread.length === 0 && (
+                <div className="suggested-section">
+                    <h4>💡 Suggested Questions:</h4>
+                    <div className="tags-container">
+                        {suggestedQuestions.map((question) => (
+                            <button key={question} onClick={() => setQuery(question)} className="tag-btn">
+                                {question}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             )}
+            <div ref={bottomRef} />
         </div>
     );
 };

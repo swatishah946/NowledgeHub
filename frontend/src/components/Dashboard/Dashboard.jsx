@@ -30,7 +30,7 @@ const Dashboard = () => {
             />
             <DashboardCard
               title="Study Room"
-              description="Focus with timers, whiteboards, and group tools."
+              description="Private rooms with join codes, live chat and a study timer."
               icon="https://cdn-icons-png.flaticon.com/512/3203/3203478.png"
               link="/study-room"
               color="#FF8C00" /* Orange Glow */

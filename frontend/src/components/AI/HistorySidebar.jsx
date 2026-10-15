@@ -10,7 +10,6 @@ const HistorySidebar = ({ isOpen, onClose, onSelectSession, activeMode }) => {
 
     useEffect(() => {
         const fetchHistory = async () => {
-            console.log("📜 HistorySidebar: fetchHistory called. ActiveMode:", activeMode);
             setLoading(true);
             setErrorMsg(null);
 
@@ -21,25 +20,20 @@ const HistorySidebar = ({ isOpen, onClose, onSelectSession, activeMode }) => {
                 setErrorMsg("Request timed out. Server might be slow.");
             }, 8000);
 
-            const type = activeMode === 'pdf' ? 'pdf-chat' : (activeMode || 'chat');
-            console.log("   - Fetching history for Type:", type);
             try {
-                const data = await getUserHistory(null, type);
+                const data = await getUserHistory(activeMode || 'chat');
                 clearTimeout(timeoutId); // Clear timeout on success
-                console.log("   - Received data:", data ? data.length : "null");
-                setSessions(data);
+                setSessions(Array.isArray(data) ? data : []);
             } catch (err) {
                 clearTimeout(timeoutId);
                 console.error("   - fetchHistory Error:", err);
                 setErrorMsg("Failed to load history.");
             } finally {
                 setLoading(false); // This should ensure loading stops
-                console.log("   - Loading set to false");
             }
         };
 
         if (isOpen) {
-            console.log("📜 HistorySidebar is OPEN. Triggering fetch.");
             fetchHistory();
         }
     }, [isOpen, activeMode]);
@@ -47,8 +41,12 @@ const HistorySidebar = ({ isOpen, onClose, onSelectSession, activeMode }) => {
     const handleDelete = async (e, sessionId) => {
         e.stopPropagation();
         if (window.confirm("Are you sure you want to delete this session?")) {
-            await deleteSession(sessionId);
-            setSessions(sessions.filter(s => s.sessionId !== sessionId));
+            try {
+                await deleteSession(sessionId);
+                setSessions((prev) => prev.filter(s => s.sessionId !== sessionId));
+            } catch (err) {
+                setErrorMsg(err.message);
+            }
         }
     };
 
@@ -82,7 +80,7 @@ const HistorySidebar = ({ isOpen, onClose, onSelectSession, activeMode }) => {
                             <div className="history-content">
                                 <span className="history-title">{session.title}</span>
                                 <div className="history-meta">
-                                    <span>{session.type.toUpperCase()}</span> • {formatDate(session.updatedAt)}
+                                    <span>{session.type === 'pdf-chat' ? 'PDF' : session.type.toUpperCase()}</span> • {formatDate(session.updatedAt)}
                                 </div>
                             </div>
                             <button

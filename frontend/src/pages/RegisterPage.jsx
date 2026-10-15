@@ -19,9 +19,9 @@ const RegisterPage = () => {
     // Password Validation Effect
     useEffect(() => {
         if (password.length > 0) {
-            const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{6,}$/;
+            const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{6,72}$/;
             if (!passwordRegex.test(password)) {
-                setPasswordError("Password must be at least 6 chars & include letters, numbers, and a special character.");
+                setPasswordError("Password must be 6-72 chars & include letters, numbers, and a special character (!@#$%^&*).");
                 setIsPasswordValid(false);
             } else {
                 setPasswordError('');
@@ -40,9 +40,9 @@ const RegisterPage = () => {
         setLoading(true);
         const toastId = toast.loading('Registering...');
         try {
-            await registerUser({ name, email, password });
-            toast.success('Registration successful! Please verify your email.', { id: toastId });
-            navigate('/verify');
+            const { data } = await registerUser({ name: name.trim(), email: email.trim(), password });
+            toast.success('Registration successful! Check your email for the code.', { id: toastId });
+            navigate('/verify', { state: { email: data?.email || email.trim() } });
         } catch (err) {
             toast.error(err?.response?.data?.message || 'Registration failed', { id: toastId });
         } finally {

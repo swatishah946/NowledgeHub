@@ -280,3 +280,120 @@
         transform: translateY(0);
     }
 }
+/* Conversation thread */
+.conversation {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.conversation .response-card {
+    margin-top: 0;
+}
+
+.user-message {
+    align-self: flex-end;
+    max-width: 80%;
+    padding: 0.8rem 1.1rem;
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.35), rgba(37, 99, 235, 0.35));
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px 16px 4px 16px;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.button-group {
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.button-group .download-report-btn {
+    margin-top: 0;
+}
+
+.button-group .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Sources under PDF answers */
+.source-list {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-glass);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.source-list ul {
+    margin: 0.4rem 0 0;
+    padding-left: 1.1rem;
+}
+
+.source-list li {
+    margin: 0.2rem 0;
+    overflow-wrap: anywhere;
+}
+
+/* Uploaded documents */
+.document-list {
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--border-glass);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.document-list select {
+    margin-left: 0.25rem;
+    max-width: 100%;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border-glass);
+    background: rgba(20, 20, 20, 0.8);
+    color: var(--text-primary);
+}
+
+.document-list ul {
+    list-style: none;
+    margin: 0.75rem 0 0;
+    padding: 0;
+}
+
+.document-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.4rem 0;
+    overflow-wrap: anywhere;
+}
+
+.doc-delete-btn {
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid rgba(231, 76, 60, 0.5);
+    color: #e74c3c;
+    border-radius: 8px;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+.doc-delete-btn:hover {
+    background: rgba(231, 76, 60, 0.15);
+}
+
+@media (max-width: 600px) {
+    .ai-assistant-container {
+        padding: 1rem;
+    }
+
+    .user-message {
+        max-width: 95%;
+    }
+}

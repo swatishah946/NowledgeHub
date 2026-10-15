@@ -16,12 +16,13 @@ const LoginPage = () => {
         setLoading(true);
         const toastId = toast.loading('Logging in...');
         try {
-            const response = await loginUser({ email, password });
+            const response = await loginUser({ email: email.trim(), password });
             saveToken(response.data.token);
             toast.success('Login successful!', { id: toastId });
             navigate('/dashboard');
         } catch (err) {
             toast.error(err?.response?.data?.message || 'Login failed', { id: toastId });
+            if (err?.response?.status === 403) navigate('/verify', { state: { email } });
         } finally {
             setLoading(false);
         }
