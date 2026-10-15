@@ -1,33 +1,31 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test test/*.test.js",
     "start": "node server.js",
-    "postinstall": "patch-package"
+    "dev": "node --watch server.js",
+    "setup:rag": "node scripts/setupRAG.js",
+    "check:gemini": "node scripts/checkGemini.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@getbrevo/brevo": "^3.0.1",
-    "@langchain/community": "^1.1.12",
+    "@google/genai": "^2.30.0",
     "@langchain/core": "^1.1.19",
-    "@langchain/google-genai": "^2.1.15",
     "@langchain/mongodb": "^1.1.0",
     "@langchain/textsplitters": "^1.0.1",
     "@tavily/core": "^0.7.1",
-    "axios": "^1.10.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.0.1",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
-    "langchain": "^1.2.18",
     "mongoose": "^8.16.4",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.13",
@@ -37,6 +35,10 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.10",
-    "patch-package": "^8.0.1"
+    "socket.io-client": "^4.8.1",
+    "supertest": "^7.3.1"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
