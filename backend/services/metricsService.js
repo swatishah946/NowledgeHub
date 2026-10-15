@@ -1,32 +1,33 @@
 import mongoose from "mongoose";
 
-// ✅ Metrics Schema
+const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60; // 2,592,000
+
 const metricsSchema = new mongoose.Schema({
     type: {
         type: String,
-        enum: ["pdf_upload", "pdf_upload_error", "rag_query", "rag_query_error", "vector_store_cleared", "health_check"],
-        required: true
+        enum: ["pdf_upload", "pdf_upload_error", "rag_query", "rag_query_error", "vector_store_cleared"],
+        required: true,
     },
-    metricId: String,
     fileName: String,
     query: String,
     error: String,
     success: Boolean,
-    
+
     // Upload metrics
     fileSize: Number,
     numChunks: Number,
     textLength: Number,
     pageCount: Number,
     avgChunkLength: Number,
-    
+    deletedCount: Number,
+
     // Query metrics
     numDocsRetrieved: Number,
     responseLength: Number,
-    confidence: Number,
+    topScore: Number, // best similarity score returned by Atlas (0..1)
     answerFound: Boolean,
-    
-    // Timing metrics
+
+    // Timing metrics (milliseconds) for the 5 pipeline stages
     extractDuration: Number,
     chunkingDuration: Number,
     embeddingDuration: Number,
@@ -34,139 +35,85 @@ const metricsSchema = new mongoose.Schema({
     generationDuration: Number,
     totalDuration: Number,
     duration: Number,
-    
-    // User info
+
     userId: String,
-    
-    // Timestamps
     timestamp: { type: Date, default: Date.now },
-    createdAt: { type: Date, default: Date.now, expires: 2592000 } // 30 days TTL
+    createdAt: { type: Date, default: Date.now, expires: THIRTY_DAYS_IN_SECONDS },
 });
+metricsSchema.index({ type: 1, timestamp: -1 });
 
 const Metric = mongoose.model("Metric", metricsSchema);
 
-// ✅ Record a metric
 export const recordMetric = async (metricData) => {
     try {
-        const metric = new Metric(metricData);
-        await metric.save();
-        console.log(`📊 Metric recorded: ${metricData.type}`);
-        return metric;
+        await Metric.create(metricData);
     } catch (err) {
+        // Metrics must never break a user request.
         console.error("❌ Failed to record metric:", err.message);
-        // Don't throw - metrics failure shouldn't crash the app
     }
 };
 
-// ✅ Get comprehensive metrics report
-export const getMetricsReport = async () => {
-    try {
-        // Last 24 hours
-        const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
-        // PDF Upload Stats
-        const uploadStats = await Metric.aggregate([
-            { $match: { type: "pdf_upload", timestamp: { $gte: last24h } } },
-            {
-                $group: {
-                    _id: null,
-                    totalUploads: { $sum: 1 },
-                    successfulUploads: { $sum: { $cond: ["$success", 1, 0] } },
-                    failedUploads: { $sum: { $cond: [{ $not: ["$success"] }, 1, 0] } },
-                    totalChunks: { $sum: "$numChunks" },
-                    avgUploadTime: { $avg: "$totalDuration" },
-                    avgFileSize: { $avg: "$fileSize" }
-                }
-            }
-        ]);
-
-        // RAG Query Stats
-        const queryStats = await Metric.aggregate([
-            { $match: { type: "rag_query", timestamp: { $gte: last24h } } },
-            {
-                $group: {
-                    _id: null,
-                    totalQueries: { $sum: 1 },
-                    queriesWithResults: { $sum: { $cond: ["$answerFound", 1, 0] } },
-                    avgRetrievalTime: { $avg: "$retrievalDuration" },
-                    avgGenerationTime: { $avg: "$generationDuration" },
-                    avgTotalTime: { $avg: "$totalDuration" },
-                    avgDocsRetrieved: { $avg: "$numDocsRetrieved" },
-                    avgConfidence: { $avg: "$confidence" }
-                }
-            }
-        ]);
-
-        // Error Stats
-        const errorStats = await Metric.aggregate([
-            { $match: { success: false, timestamp: { $gte: last24h } } },
-            {
-                $group: {
-                    _id: "$type",
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
-
-        // Retrieval Accuracy (queries with results found)
-        const totalQueries = queryStats[0]?.totalQueries || 0;
-        const successfulQueries = queryStats[0]?.queriesWithResults || 0;
-        const retrievalAccuracy = totalQueries > 0 ? ((successfulQueries / totalQueries) * 100).toFixed(2) : 0;
-
-        return {
-            period: "Last 24 Hours",
-            summary: {
-                retrieval_accuracy: `${retrievalAccuracy}%`,
-                total_queries: totalQueries,
-                successful_queries: successfulQueries,
-                total_uploads: uploadStats[0]?.totalUploads || 0,
-                successful_uploads: uploadStats[0]?.successfulUploads || 0
-            },
-            uploads: uploadStats[0] ? {
-                totalUploads: uploadStats[0].totalUploads,
-                successfulUploads: uploadStats[0].successfulUploads,
-                failedUploads: uploadStats[0].failedUploads,
-                totalChunksCreated: Math.round(uploadStats[0].totalChunks),
-                avgUploadTime: `${Math.round(uploadStats[0].avgUploadTime)}ms`,
-                avgFileSize: `${(uploadStats[0].avgFileSize / 1024 / 1024).toFixed(2)}MB`
-            } : { message: "No upload data" },
-            queries: queryStats[0] ? {
-                totalQueries: queryStats[0].totalQueries,
-                queriesWithResults: queryStats[0].queriesWithResults,
-                avgRetrievalTime: `${Math.round(queryStats[0].avgRetrievalTime)}ms`,
-                avgGenerationTime: `${Math.round(queryStats[0].avgGenerationTime)}ms`,
-                avgTotalTime: `${Math.round(queryStats[0].avgTotalTime)}ms`,
-                avgDocsRetrieved: Math.round(queryStats[0].avgDocsRetrieved * 10) / 10,
-                avgConfidence: (queryStats[0].avgConfidence * 100).toFixed(2) + "%"
-            } : { message: "No query data" },
-            errors: errorStats.length > 0 ? errorStats : { message: "No errors recorded" }
-        };
-    } catch (err) {
-        console.error("❌ Failed to generate metrics report:", err.message);
-        throw err;
-    }
+/** Nearest-rank percentile of a list of numbers (p in 0..100). */
+export const percentile = (values, p) => {
+    const sorted = values.filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
+    if (!sorted.length) return null;
+    const rank = Math.ceil((p / 100) * sorted.length);
+    return sorted[Math.min(sorted.length, Math.max(1, rank)) - 1];
 };
 
-// ✅ Get metrics for specific user
-export const getUserMetrics = async (userId) => {
-    try {
-        const metrics = await Metric.find({ userId }).sort({ timestamp: -1 }).limit(100);
-        return metrics;
-    } catch (err) {
-        console.error("❌ Failed to fetch user metrics:", err.message);
-        throw err;
-    }
+const stats = (docs, field) => {
+    const values = docs.map((d) => d[field]).filter((v) => Number.isFinite(v));
+    if (!values.length) return null;
+    const avg = values.reduce((s, v) => s + v, 0) / values.length;
+    return { avg: Math.round(avg), p50: percentile(values, 50), p95: percentile(values, 95), max: Math.max(...values), count: values.length };
 };
 
-// ✅ Clear old metrics (cleanup job)
-export const clearOldMetrics = async (daysOld = 30) => {
-    try {
-        const cutoffDate = new Date(Date.now() - daysOld * 24 * 60 * 60 * 1000);
-        const result = await Metric.deleteMany({ timestamp: { $lt: cutoffDate } });
-        console.log(`🗑️ Cleared ${result.deletedCount} old metrics`);
-        return result;
-    } catch (err) {
-        console.error("❌ Failed to clear old metrics:", err.message);
-        throw err;
-    }
+const MAX_ROWS = 5000;
+
+export const getMetricsReport = async ({ hours = 24 } = {}) => {
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+    const rows = await Metric.find({ timestamp: { $gte: since } })
+        .sort({ timestamp: -1 })
+        .limit(MAX_ROWS)
+        .select("-query -error -userId")
+        .lean();
+
+    const uploads = rows.filter((r) => r.type === "pdf_upload");
+    const uploadErrors = rows.filter((r) => r.type === "pdf_upload_error");
+    const queries = rows.filter((r) => r.type === "rag_query");
+    const queryErrors = rows.filter((r) => r.type === "rag_query_error");
+    const answered = queries.filter((q) => q.answerFound);
+
+    return {
+        period: `Last ${hours} hours`,
+        note: "Times are in milliseconds. p50 = median, p95 = 95th percentile.",
+        uploads: {
+            successful: uploads.length,
+            failed: uploadErrors.length,
+            totalChunksCreated: uploads.reduce((s, u) => s + (u.numChunks || 0), 0),
+            totalPages: uploads.reduce((s, u) => s + (u.pageCount || 0), 0),
+            extraction: stats(uploads, "extractDuration"),
+            chunking: stats(uploads, "chunkingDuration"),
+            embedding: stats(uploads, "embeddingDuration"),
+            total: stats(uploads, "totalDuration"),
+        },
+        queries: {
+            successful: queries.length,
+            failed: queryErrors.length,
+            // Share of questions where at least one relevant chunk passed the score threshold.
+            // This is NOT answer accuracy; that needs a labelled test set.
+            answerRate: queries.length ? `${((answered.length / queries.length) * 100).toFixed(1)}%` : null,
+            avgChunksUsed: answered.length ? Math.round((answered.reduce((s, q) => s + q.numDocsRetrieved, 0) / answered.length) * 10) / 10 : null,
+            topSimilarity: (() => {
+                const scores = queries.map((q) => q.topScore).filter((v) => Number.isFinite(v));
+                if (!scores.length) return null;
+                const avg = scores.reduce((s, v) => s + v, 0) / scores.length;
+                return { avg: Number(avg.toFixed(3)), p50: percentile(scores, 50) };
+            })(),
+            retrieval: stats(queries, "retrievalDuration"),
+            generation: stats(answered, "generationDuration"),
+            total: stats(queries, "totalDuration"),
+        },
+        sampledRows: rows.length,
+    };
 };
