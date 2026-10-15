@@ -1,159 +1,85 @@
 import { aiChatBot, generateQuiz, generateRoadmap } from "../services/aiService.js";
+import { saveExchange, loadConversation } from "../services/historyService.js";
 import ChatHistory from "../models/ChatHistory.js";
-import mongoose from "mongoose";
-
-// --- HELPERS ---
-const saveToHistory = async (userId, sessionId, type, query, response, metadata = null) => {
-    try {
-        if (sessionId) {
-            let uid = userId || null;
-            // If we don't have a userId (guest), we generate a temp one if needed, 
-            // but ideally we only save if we have a userId or a persistent sessionId mechanism.
-            // For now, if no userId, we might skip or create a temp one if logic allows.
-            
-            if (!uid) {
-                // If unauthenticated but has sessionId, we might try to find existing session to attach to?
-                // Or just standard flow:
-                return; 
-            }
-
-            await ChatHistory.updateOne(
-                { sessionId },
-                { 
-                    $setOnInsert: { userId: uid, title: `${type === 'chat' ? 'Chat' : type}: ${query.substring(0, 30)}...`, type },
-                    $push: { messages: [
-                        { role: 'user', content: query },
-                        { role: 'model', content: typeof response === 'string' ? response : JSON.stringify(response), metadata }
-                    ]}
-                },
-                { upsert: true }
-            );
-        }
-    } catch (error) {
-        console.error("❌ History Save Error:", error);
-    }
-};
+import { AI_CONFIG } from "../config/ai.js";
+import { requireString, optionalSessionId, HttpError } from "../utils/validation.js";
 
 /* -------------------------------------------------------------------------- */
 /*                               AI GENERATION                                */
 /* -------------------------------------------------------------------------- */
 
 export const getAIResponse = async (req, res) => {
-    const { query, sessionId } = req.body;
-    const userId = req.user ? req.user.id : null;
+    const query = requireString(req.body?.query, "Query", { max: 5000 });
+    const sessionId = optionalSessionId(req.body?.sessionId);
+    const userId = req.user.id;
 
-    if (!query || !query.trim()) {
-        return res.status(400).json({ error: "Query is required" });
-    }
+    // Conversation memory: send the last few messages of this session to the model.
+    const history = sessionId
+        ? await loadConversation({ userId, sessionId, limit: AI_CONFIG.chatHistoryMessages })
+        : [];
 
-    try {
-        const response = await aiChatBot(query.trim());
-        
-        // Save to History
-        if (userId && sessionId) {
-            await saveToHistory(userId, sessionId, 'chat', query, response);
-        }
+    const response = await aiChatBot(query, history);
+    await saveExchange({ userId, sessionId, type: "chat", query, response });
 
-        res.json({ response, status: "success" });
-    } catch (err) {
-        console.error("❌ AI Controller Error:", err);
-        res.status(500).json({ error: err.message });
-    }
+    res.json({ response, status: "success" });
 };
 
-
 export const getQuiz = async (req, res) => {
-    const { topic, sessionId } = req.body;
-    const userId = req.user ? req.user.id : null;
+    const topic = requireString(req.body?.topic, "Topic", { max: 200 });
+    const sessionId = optionalSessionId(req.body?.sessionId);
 
-    if (!topic || !topic.trim()) {
-        return res.status(400).json({ error: "Topic is required" });
-    }
+    const quiz = await generateQuiz(topic);
+    await saveExchange({ userId: req.user.id, sessionId, type: "quiz", query: `Generate Quiz: ${topic}`, response: "Quiz generated", metadata: quiz });
 
-    try {
-        const quiz = await generateQuiz(topic.trim());
-        
-        // Save to History
-        if (userId && sessionId) {
-           await saveToHistory(userId, sessionId, 'quiz', `Generate Quiz: ${topic}`, "Quiz Generated", quiz);
-        }
-
-        res.json({ quiz, status: "success" });
-    } catch (err) {
-        console.error("❌ Quiz Generation Error:", err);
-        res.status(500).json({ error: err.message });
-    }
+    res.json({ quiz, status: "success" });
 };
 
 export const getRoadmap = async (req, res) => {
-    const { goal, sessionId } = req.body;
-    const userId = req.user ? req.user.id : null;
+    const goal = requireString(req.body?.goal, "Goal", { max: 200 });
+    const sessionId = optionalSessionId(req.body?.sessionId);
 
-    if (!goal || !goal.trim()) {
-        return res.status(400).json({ error: "Goal is required" });
-    }
+    const roadmap = await generateRoadmap(goal);
+    await saveExchange({ userId: req.user.id, sessionId, type: "roadmap", query: `Generate Roadmap: ${goal}`, response: "Roadmap generated", metadata: roadmap });
 
-    try {
-        const roadmap = await generateRoadmap(goal.trim());
-        
-        // Save to History
-        if (userId && sessionId) {
-            await saveToHistory(userId, sessionId, 'roadmap', `Generate Roadmap: ${goal}`, "Roadmap Generated", roadmap);
-        }
-
-        res.json({ roadmap, status: "success" });
-    } catch (err) {
-        console.error("❌ Roadmap Generation Error:", err);
-        res.status(500).json({ error: err.message });
-    }
+    res.json({ roadmap, status: "success" });
 };
 
 /* -------------------------------------------------------------------------- */
 /*                               HISTORY MANAGEMENT                           */
 /* -------------------------------------------------------------------------- */
 
+const MODE_TO_TYPE = { chat: "chat", research: "research", pdf: "pdf-chat", "pdf-chat": "pdf-chat", quiz: "quiz", roadmap: "roadmap" };
+
 export const getUserHistory = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const history = await ChatHistory.find({ userId, isDeleted: false })
-            .sort({ updatedAt: -1 })
-            .select("sessionId title type updatedAt");
-        
-        res.json(history);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    const filter = { userId: req.user.id, isDeleted: false };
+    const mode = typeof req.query.mode === "string" ? req.query.mode : undefined;
+    if (mode && MODE_TO_TYPE[mode]) filter.type = MODE_TO_TYPE[mode];
+
+    const history = await ChatHistory.find(filter)
+        .sort({ updatedAt: -1 })
+        .limit(50)
+        .select("sessionId title type updatedAt")
+        .lean();
+
+    res.json(history);
 };
 
 export const getSessionDetails = async (req, res) => {
-    try {
-        const { sessionId } = req.params;
-        const userId = req.user.id;
+    const sessionId = optionalSessionId(req.params.sessionId);
+    if (!sessionId) throw new HttpError(400, "Invalid sessionId");
 
-        const session = await ChatHistory.findOne({ sessionId, userId, isDeleted: false });
+    const session = await ChatHistory.findOne({ sessionId, userId: req.user.id, isDeleted: false }).lean();
+    if (!session) throw new HttpError(404, "Session not found");
 
-        if (!session) {
-            return res.status(404).json({ message: "Session not found" });
-        }
-
-        res.json(session);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    res.json(session);
 };
 
 export const deleteSession = async (req, res) => {
-    try {
-        const { sessionId } = req.params;
-        const userId = req.user.id;
+    const sessionId = optionalSessionId(req.params.sessionId);
+    if (!sessionId) throw new HttpError(400, "Invalid sessionId");
 
-        await ChatHistory.findOneAndUpdate(
-            { sessionId, userId },
-            { isDeleted: true }
-        );
+    const result = await ChatHistory.updateOne({ sessionId, userId: req.user.id }, { isDeleted: true });
+    if (result.matchedCount === 0) throw new HttpError(404, "Session not found");
 
-        res.json({ message: "Session deleted successfully" });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    res.json({ message: "Session deleted successfully" });
 };

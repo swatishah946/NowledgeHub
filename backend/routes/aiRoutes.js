@@ -1,21 +1,20 @@
 import express from "express";
 import { getAIResponse, getQuiz, getRoadmap, getUserHistory, getSessionDetails, deleteSession } from "../controllers/aiController.js";
 import { performDeepResearch } from "../controllers/researchController.js";
-
-// Assuming you have an authentication middleware. If not, you can remove it.
-import { authenticate } from "../middleware/authMiddleware.js"; 
-// const authenticate = (req, res, next) => next(); // Placeholder if you don't have one
+import { authenticate } from "../middleware/authMiddleware.js";
+import { aiLimiter } from "../middleware/rateLimiter.js";
 
 const router = express.Router();
 
-router.post("/chat", authenticate, getAIResponse);
-router.post("/quiz", authenticate, getQuiz);
-router.post("/roadmap", authenticate, getRoadmap);
-router.post("/research", authenticate, performDeepResearch);
+router.use(authenticate);
 
-// History Routes
-router.get("/history", authenticate, getUserHistory);
-router.get("/history/:sessionId", authenticate, getSessionDetails);
-router.delete("/history/:sessionId", authenticate, deleteSession);
+router.post("/chat", aiLimiter, getAIResponse);
+router.post("/quiz", aiLimiter, getQuiz);
+router.post("/roadmap", aiLimiter, getRoadmap);
+router.post("/research", aiLimiter, performDeepResearch);
+
+router.get("/history", getUserHistory);
+router.get("/history/:sessionId", getSessionDetails);
+router.delete("/history/:sessionId", deleteSession);
 
 export default router;
