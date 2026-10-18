@@ -1,18 +1,14 @@
 import express from "express";
-// --- START: New Feature ---
-import { register, verifyUser, login, getMe } from "../controllers/authController.js";
+import { register, verifyUser, resendOtp, login, getMe } from "../controllers/authController.js";
 import { authenticate } from "../middleware/authMiddleware.js";
-// --- END: New Feature ---
+import { authLimiter } from "../middleware/rateLimiter.js";
 
 const router = express.Router();
 
-router.post("/register", register);
-router.post("/verify", verifyUser);
-router.post("/login", login);
-
-// --- START: New Feature ---
-// This new route will provide the authenticated user's details
+router.post("/register", authLimiter, register);
+router.post("/verify", authLimiter, verifyUser);
+router.post("/resend-otp", authLimiter, resendOtp);
+router.post("/login", authLimiter, login);
 router.get("/me", authenticate, getMe);
-// --- END: New Feature ---
 
 export default router;

@@ -1,14 +1,22 @@
-import jwt from "jsonwebtoken";
+import { verifyToken } from "../utils/jwtUtils.js";
 
 export const authenticate = (req, res, next) => {
-    const token = req.header("Authorization")?.split(" ")[1];
-    if (!token) return res.status(401).json({ message: "Unauthorized" });
+    const header = req.header("Authorization") || "";
+    const [scheme, token] = header.split(" ");
+    if (scheme !== "Bearer" || !token) {
+        return res.status(401).json({ message: "Unauthorized", error: "Unauthorized" });
+    }
 
     try {
-        const user = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = user;
+        const payload = verifyToken(token);
+        if (!payload?.id) throw new Error("Token has no user id");
+        req.user = { id: String(payload.id) };
         next();
-    } catch {
-        return res.status(403).json({ message: "Invalid Token" });
+    } catch (error) {
+        const expired = error.name === "TokenExpiredError";
+        return res.status(401).json({
+            message: expired ? "Session expired" : "Invalid token",
+            error: expired ? "Session expired" : "Invalid token",
+        });
     }
 };

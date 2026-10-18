@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
-// FIX: Changed 'generateQuiz' to 'getQuiz' to match the exported function name
 import { getQuiz } from '../../services/aiService';
 import './Quiz.css';
 
@@ -21,19 +20,18 @@ const Quiz = () => {
         setQuiz(null);
         setAnswers({});
         setScore(null);
-        // const toastId = toast.loading('Generating your quiz...');
+        const toastId = toast.loading('Generating your quiz...');
 
         try {
-            // FIX: Call the correctly imported 'getQuiz' function
             const quizData = await getQuiz(topic);
             if (quizData && quizData.questions) {
                 setQuiz(quizData);
-                // toast.success('Quiz generated successfully!', { id: toastId });
+                toast.success('Quiz generated!', { id: toastId });
             } else {
                 throw new Error("Received invalid quiz data from AI.");
             }
         } catch (err) {
-            // toast.error(err.message || 'Failed to generate quiz.', { id: toastId });
+            toast.error(err.message || 'Failed to generate quiz.', { id: toastId });
         } finally {
             setLoading(false);
         }

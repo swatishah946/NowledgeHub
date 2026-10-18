@@ -1,37 +1,17 @@
-// // Ai-Amrit-School/backend/models/Message.js
-
-// import mongoose from "mongoose";
-
-// const messageSchema = new mongoose.Schema({
-//     room: { type: String, required: true }, // Changed to String to store room ID
-//     sender: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-//     text: { type: String, required: true },
-//     // --- START: New Feature ---
-//     // The 'createdAt' field will now be used for the TTL index
-//     createdAt: { type: Date, default: Date.now, expires: '30d' } 
-//     // --- END: New Feature ---
-// });
-
-// // To make this work, ensure you have a TTL index in your MongoDB.
-// // Mongoose will automatically create this index for you.
-
-// export default mongoose.model("Message", messageSchema);
-
-
-
-
-
 import mongoose from "mongoose";
 
+export const GLOBAL_ROOM_ID = "study-group-1";
+const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60; // 2,592,000
+
 const messageSchema = new mongoose.Schema({
-    sender: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // Username or "You"
-    text: { type: String, required: true },
-    room: { type: String, default: "general" }, // Support for different rooms
-    createdAt: { 
-        type: Date, 
-        default: Date.now, 
-        expires: 2592000 // 30 Days in seconds (30 * 24 * 60 * 60)
-    }
+    sender: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    text: { type: String, required: true, maxlength: 2000 },
+    // GLOBAL_ROOM_ID for the public chat, otherwise a Room _id
+    room: { type: String, default: GLOBAL_ROOM_ID },
+    createdAt: { type: Date, default: Date.now, expires: THIRTY_DAYS_IN_SECONDS }
 });
+
+// Serves "latest messages in a room" without scanning the collection.
+messageSchema.index({ room: 1, createdAt: -1 });
 
 export default mongoose.model("Message", messageSchema);
