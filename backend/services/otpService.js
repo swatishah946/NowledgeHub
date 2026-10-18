@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import nodemailer from "nodemailer";
+import { sendEmail, getEmailProvider } from "./emailService.js";
 import Otp from "../models/Otp.js";
 
 export const OTP_CONFIG = {
@@ -7,25 +7,9 @@ export const OTP_CONFIG = {
     ttlMs: 10 * 60 * 1000, // 10 minutes
     maxAttempts: 5, // wrong guesses allowed per code
     resendCooldownMs: 60 * 1000, // 1 minute between emails
-    sendTimeoutMs: 15 * 1000,
 };
 
-let transporter = null;
-const getTransporter = () => {
-    if (transporter) return transporter;
-    const port = Number(process.env.EMAIL_PORT) || 587;
-    transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || "smtp.gmail.com",
-        port,
-        secure: port === 465, // 465 = TLS from the start, 587 = STARTTLS
-        auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-        connectionTimeout: 15_000,
-        socketTimeout: 15_000,
-    });
-    return transporter;
-};
-
-export const isEmailConfigured = () => Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+export const isEmailConfigured = () => Boolean(getEmailProvider());
 
 // crypto.randomInt is cryptographically secure, unlike Math.random.
 export const generateOtp = () => crypto.randomInt(0, 10 ** OTP_CONFIG.length).toString().padStart(OTP_CONFIG.length, "0");
@@ -46,14 +30,6 @@ const otpEmailHtml = (otp) => `
     <p style="color: #999; font-size: 12px;">This code expires in 10 minutes. If you didn't sign up, ignore this email.</p>
   </div>
 </div>`;
-
-const withTimeout = (promise, ms, message) => {
-    let timer;
-    const timeout = new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error(message)), ms);
-    });
-    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-};
 
 /**
  * Creates (or replaces) the OTP for an email and sends it.
@@ -77,21 +53,17 @@ export const sendOtp = async (email, { enforceCooldown = false } = {}) => {
 
     if (!isEmailConfigured()) {
         if (process.env.NODE_ENV === "production") throw new Error("Email service is not configured");
-        // Local development without SMTP: print the code instead of emailing it.
-        console.warn(`⚠️ EMAIL_USER/EMAIL_PASS not set. OTP for ${email}: ${otp}`);
+        // Local development without an email provider: print the code instead of emailing it.
+        console.warn(`⚠️ No email provider configured. OTP for ${email}: ${otp}`);
         return { sent: true };
     }
 
-    await withTimeout(
-        getTransporter().sendMail({
-            from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-            to: email,
-            subject: "🔐 NowledgeHub - Email Verification Code",
-            html: otpEmailHtml(otp),
-        }),
-        OTP_CONFIG.sendTimeoutMs,
-        "Email send timeout"
-    );
+    await sendEmail({
+        to: email,
+        subject: "🔐 NowledgeHub - Email Verification Code",
+        html: otpEmailHtml(otp),
+        text: `Your NowledgeHub verification code is ${otp}. It expires in 10 minutes. If you didn't sign up, ignore this email.`,
+    });
     return { sent: true };
 };
 
