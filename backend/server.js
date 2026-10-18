@@ -7,6 +7,7 @@ import { connectDB } from "./config/db.js";
 import { getAllowedOrigins } from "./config/cors.js";
 import { setupSockets } from "./config/socketConfig.js";
 import { AI_CONFIG } from "./config/ai.js";
+import { getEmailProvider, getSender } from "./services/emailService.js";
 
 const PORT = process.env.PORT || 5000;
 
@@ -18,7 +19,9 @@ const checkEnv = () => {
     }
     if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) console.warn("⚠️ GEMINI_API_KEY not set: AI features will return 503.");
     if (!process.env.TAVILY_API_KEY) console.warn("⚠️ TAVILY_API_KEY not set: Deep Research will return 503.");
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) console.warn("⚠️ EMAIL_USER/EMAIL_PASS not set: OTP codes will be printed to the console (dev only).");
+    const emailProvider = getEmailProvider();
+    if (emailProvider) console.log(`📧 Email provider: ${emailProvider === "brevo" ? "Brevo API" : "SMTP (Nodemailer)"}, sender ${getSender().email}`);
+    else console.warn("⚠️ No email provider (BREVO_API_KEY or EMAIL_USER/EMAIL_PASS) set: OTP codes will be printed to the console (dev only).");
     console.log(`🤖 Models: chat=${AI_CONFIG.chatModel}, fast=${AI_CONFIG.fastModel}, embeddings=${AI_CONFIG.embeddingModel} (${AI_CONFIG.embeddingDimensions} dims)`);
 };
 

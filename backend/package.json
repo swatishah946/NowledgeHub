@@ -7,7 +7,8 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "setup:rag": "node scripts/setupRAG.js",
-    "check:gemini": "node scripts/checkGemini.js"
+    "check:gemini": "node scripts/checkGemini.js",
+    "check:email": "node scripts/checkEmail.js"
   },
   "keywords": [],
   "author": "",
