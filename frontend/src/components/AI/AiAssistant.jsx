@@ -52,9 +52,11 @@ const AiAssistant = () => {
     const [sessionIds, setSessionIds] = useState(loadSessionIds);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-    const [loading, setLoading] = useState(false);
+    // Each mode keeps its own loading flag and error, so a problem in one tab
+    // (e.g. PDF) never shows up in another (e.g. Deep Research).
+    const [busy, setBusy] = useState({ chat: false, pdf: false, research: false });
+    const [errors, setErrors] = useState({ chat: '', pdf: '', research: '' });
     const [uploading, setUploading] = useState(false);
-    const [error, setError] = useState('');
     const [msg, setMsg] = useState('');
 
     const [documents, setDocuments] = useState([]);
@@ -63,7 +65,11 @@ const AiAssistant = () => {
 
     const query = inputs[mode];
     const thread = threads[mode];
+    const loading = busy[mode];
+    const error = errors[mode];
     const setQuery = (value) => setInputs((prev) => ({ ...prev, [mode]: value }));
+    const setModeError = (targetMode, value) => setErrors((prev) => ({ ...prev, [targetMode]: value }));
+    const setModeBusy = (targetMode, value) => setBusy((prev) => ({ ...prev, [targetMode]: value }));
     const addMessage = (targetMode, message) =>
         setThreads((prev) => ({ ...prev, [targetMode]: [...prev[targetMode], message] }));
 
@@ -92,15 +98,16 @@ const AiAssistant = () => {
     const handleAskAI = async (e) => {
         e.preventDefault();
         const text = query.trim();
+        const currentMode = mode;
         if (!text) {
-            setError('Please enter a query.');
+            setModeError(currentMode, 'Please enter a query.');
             return;
         }
+        if (busy[currentMode]) return;
 
-        const currentMode = mode;
         const sessionId = sessionIds[currentMode];
-        setLoading(true);
-        setError('');
+        setModeBusy(currentMode, true);
+        setModeError(currentMode, '');
         setQuery('');
         addMessage(currentMode, { role: 'user', content: text });
 
@@ -117,9 +124,18 @@ const AiAssistant = () => {
             }
         } catch (err) {
             console.error('AI request error:', err);
-            setError(err.message || 'AI request failed');
+            setModeError(currentMode, err.message || 'AI request failed');
+            // Put the question back so the user can retry without retyping it.
+            setInputs((prev) => ({ ...prev, [currentMode]: prev[currentMode] || text }));
+            setThreads((prev) => {
+                const list = prev[currentMode];
+                const last = list[list.length - 1];
+                return last?.role === 'user' && last.content === text
+                    ? { ...prev, [currentMode]: list.slice(0, -1) }
+                    : prev;
+            });
         } finally {
-            setLoading(false);
+            setModeBusy(currentMode, false);
         }
     };
 
@@ -130,14 +146,14 @@ const AiAssistant = () => {
 
         setUploading(true);
         setMsg('');
-        setError('');
+        setModeError('pdf', '');
         try {
             const result = await uploadPDF(file);
             const info = result?.data;
             setMsg(`✅ ${info?.fileName || file.name} indexed (${info?.pages ?? '?'} pages, ${info?.chunksCreated ?? '?'} chunks). Ask me anything!`);
             await refreshDocuments();
         } catch (err) {
-            setError(err.message || 'Failed to upload PDF.');
+            setModeError('pdf', err.message || 'Failed to upload PDF.');
         } finally {
             setUploading(false);
         }
@@ -149,7 +165,7 @@ const AiAssistant = () => {
             await deleteDocument(source);
             await refreshDocuments();
         } catch (err) {
-            setError(err.message);
+            setModeError('pdf', err.message);
         }
     };
 
@@ -157,15 +173,15 @@ const AiAssistant = () => {
         setSessionIds((prev) => ({ ...prev, [mode]: newSessionId() }));
         setThreads((prev) => ({ ...prev, [mode]: [] }));
         setQuery('');
-        setError('');
+        setModeError(mode, '');
     };
 
     const handleSelectSession = async (session) => {
         const targetMode = TYPE_TO_MODE[session.type] || 'chat';
         setMode(targetMode);
         setIsSidebarOpen(false);
-        setError('');
-        setLoading(true);
+        setModeError(targetMode, '');
+        setModeBusy(targetMode, true);
         try {
             const fullSession = await getSession(session.sessionId);
             if (!fullSession) throw new Error('Session not found');
@@ -180,11 +196,13 @@ const AiAssistant = () => {
             }));
         } catch (err) {
             console.error('Error loading session:', err);
-            setError('Failed to load session details.');
+            setModeError(targetMode, 'Failed to load this conversation.');
         } finally {
-            setLoading(false);
+            setModeBusy(targetMode, false);
         }
     };
+
+    const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
 
     const lastModelMessage = [...thread].reverse().find((m) => m.role === 'model');
 
@@ -192,9 +210,10 @@ const AiAssistant = () => {
         <div className="ai-assistant-container glass-card">
             <HistorySidebar
                 isOpen={isSidebarOpen}
-                onClose={() => setIsSidebarOpen(false)}
+                onClose={closeSidebar}
                 onSelectSession={handleSelectSession}
                 activeMode={mode}
+                activeSessionId={sessionIds[mode]}
             />
 
             <button className="sidebar-toggle-btn" onClick={() => setIsSidebarOpen(true)}>

@@ -155,7 +155,7 @@ export const chatWithPDF = async (req, res) => {
         const topScore = raw[0]?.[1] ?? 0;
 
         if (results.length === 0) {
-            const hasDocs = await getVectorCollection().countDocuments({ userId }, { limit: 1 });
+            const hasDocs = await getVectorCollection().countDocuments({ userId, embeddingModel: AI_CONFIG.embeddingModel }, { limit: 1 });
             const response = hasDocs
                 ? "This information is not covered in your uploaded documents."
                 : "You haven't uploaded any PDFs yet. Upload a PDF first, then ask your question.";
@@ -232,7 +232,8 @@ export const chatWithPDF = async (req, res) => {
 export const listDocuments = async (req, res) => {
     const documents = await getVectorCollection()
         .aggregate([
-            { $match: { userId: req.user.id } },
+            // Only PDFs indexed with the current embedding model are searchable.
+            { $match: { userId: req.user.id, embeddingModel: AI_CONFIG.embeddingModel } },
             {
                 $group: {
                     _id: "$source",

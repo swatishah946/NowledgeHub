@@ -42,12 +42,16 @@ export const saveExchange = async ({ userId, sessionId, type, query, response, m
 /** Previous messages of a session, oldest first, in the format the AI service expects. */
 export const loadConversation = async ({ userId, sessionId, limit = 10 }) => {
     if (!userId || !sessionId) return [];
-    const session = await ChatHistory.findOne(
-        { userId, sessionId, isDeleted: false },
-        { messages: { $slice: -limit } }
-    ).lean();
-    return (session?.messages ?? []).map((m) => ({
-        role: m.role === "user" ? "user" : "model",
-        text: m.content,
-    }));
+    try {
+        // Sessions are capped at 200 messages, so loading them and slicing here is cheap.
+        const session = await ChatHistory.findOne({ userId, sessionId, isDeleted: false }).select("messages").lean();
+        return (session?.messages ?? []).slice(-limit).map((m) => ({
+            role: m.role === "user" ? "user" : "model",
+            text: m.content,
+        }));
+    } catch (error) {
+        // Memory is a bonus: answer without it rather than failing the request.
+        console.error("❌ Could not load conversation history:", error.message);
+        return [];
+    }
 };
