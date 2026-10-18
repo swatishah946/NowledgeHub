@@ -1,9 +1,9 @@
-
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getUserHistory, deleteSession } from '../../services/aiService';
 import './HistorySidebar.css';
 
-const HistorySidebar = ({ isOpen, onClose, onSelectSession, activeMode }) => {
+const HistorySidebar = ({ isOpen, onClose, onSelectSession, activeMode, activeSessionId }) => {
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState(null);
@@ -38,6 +38,14 @@ const HistorySidebar = ({ isOpen, onClose, onSelectSession, activeMode }) => {
         }
     }, [isOpen, activeMode]);
 
+    // Close with the Escape key.
+    useEffect(() => {
+        if (!isOpen) return undefined;
+        const onKey = (e) => e.key === 'Escape' && onClose();
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [isOpen, onClose]);
+
     const handleDelete = async (e, sessionId) => {
         e.stopPropagation();
         if (window.confirm("Are you sure you want to delete this session?")) {
@@ -56,11 +64,19 @@ const HistorySidebar = ({ isOpen, onClose, onSelectSession, activeMode }) => {
         });
     };
 
-    return (
-        <div className={`history-sidebar ${isOpen ? 'open' : ''}`}>
+    const modeLabel = { chat: 'AI Chat', pdf: 'PDF Study', research: 'Deep Research' }[activeMode] || 'AI Chat';
+
+    // Rendered into <body> so the page's glass/blur styles can't trap or clip it.
+    return createPortal(
+        <>
+            <div className={`history-backdrop ${isOpen ? 'open' : ''}`} onClick={onClose} aria-hidden="true" />
+            <aside className={`history-sidebar ${isOpen ? 'open' : ''}`} aria-hidden={!isOpen} aria-label="Conversation history">
             <div className="sidebar-header">
-                <h3>📜 History</h3>
-                <button className="close-btn" onClick={onClose}>&times;</button>
+                <div>
+                    <h3>📜 History</h3>
+                    <span className="history-mode-label">{modeLabel}</span>
+                </div>
+                <button className="close-btn" onClick={onClose} aria-label="Close history">&times;</button>
             </div>
 
             <div className="history-list">
@@ -69,12 +85,12 @@ const HistorySidebar = ({ isOpen, onClose, onSelectSession, activeMode }) => {
                 ) : errorMsg ? (
                     <p style={{ textAlign: 'center', color: '#ff4444', marginTop: '2rem' }}>{errorMsg}</p>
                 ) : sessions.length === 0 ? (
-                    <p style={{ textAlign: 'center', color: '#888', marginTop: '2rem' }}>No history found.</p>
+                    <p style={{ textAlign: 'center', color: '#888', marginTop: '2rem' }}>No {modeLabel} conversations yet.</p>
                 ) : (
                     sessions.map(session => (
                         <div
                             key={session.sessionId}
-                            className="history-item"
+                            className={`history-item ${session.sessionId === activeSessionId ? 'active' : ''}`}
                             onClick={() => onSelectSession(session)}
                         >
                             <div className="history-content">
@@ -86,6 +102,8 @@ const HistorySidebar = ({ isOpen, onClose, onSelectSession, activeMode }) => {
                             <button
                                 className="delete-btn"
                                 onClick={(e) => handleDelete(e, session.sessionId)}
+                                aria-label="Delete conversation"
+                                title="Delete conversation"
                             >
                                 🗑️
                             </button>
@@ -93,7 +111,9 @@ const HistorySidebar = ({ isOpen, onClose, onSelectSession, activeMode }) => {
                     ))
                 )}
             </div>
-        </div>
+            </aside>
+        </>,
+        document.body
     );
 };
 

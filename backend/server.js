@@ -8,6 +8,7 @@ import { getAllowedOrigins } from "./config/cors.js";
 import { setupSockets } from "./config/socketConfig.js";
 import { AI_CONFIG } from "./config/ai.js";
 import { getEmailProvider, getSender } from "./services/emailService.js";
+import { ensureVectorIndex } from "./services/vectorStore.js";
 
 const PORT = process.env.PORT || 5000;
 
@@ -33,6 +34,9 @@ const start = async () => {
         console.error("❌ MongoDB Connection Error:", error.message);
         process.exit(1);
     }
+
+    // Create/fix the Atlas vector index in the background (doesn't block startup).
+    ensureVectorIndex().catch(() => {});
 
     const server = http.createServer(app);
     const io = new Server(server, {

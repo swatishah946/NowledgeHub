@@ -61,15 +61,72 @@ export const describeIndexProblems = (index, dimensions = AI_CONFIG.embeddingDim
 
 let indexCheckedAt = 0;
 const INDEX_CHECK_TTL_MS = 10 * 60 * 1000;
+let ensuring = null;
 
-/** Throws a clear 503 if the vector index is missing or out of date. Result cached for 10 minutes. */
+/**
+ * Creates the Atlas Vector Search index (or updates it if the dimensions or
+ * filter fields are wrong). Runs automatically at startup, so no manual setup
+ * is needed. Atlas builds the index in the background (about a minute).
+ */
+export function ensureVectorIndex() {
+    ensuring ??= (async () => {
+        const db = mongoose.connection.getClient().db(RAG_CONFIG.vectorDbName);
+        const name = RAG_CONFIG.vectorIndexName;
+        if (!(await db.listCollections({ name: RAG_CONFIG.vectorCollection }).hasNext())) {
+            await db.createCollection(RAG_CONFIG.vectorCollection);
+        }
+        const collection = getVectorCollection();
+        const definition = expectedIndexDefinition();
+        const [index] = await collection.listSearchIndexes(name).toArray();
+
+        if (!index) {
+            await collection.createSearchIndex({ name, type: "vectorSearch", definition });
+            console.log(`🆕 Created vector search index "${name}" (${AI_CONFIG.embeddingDimensions} dims). Atlas needs about a minute to build it.`);
+        } else if (describeIndexProblems({ ...index, queryable: true }).length) {
+            await collection.updateSearchIndex(name, definition);
+            console.log(`🔄 Updated vector search index "${name}" to ${AI_CONFIG.embeddingDimensions} dims with userId/source filters.`);
+        } else {
+            console.log(`✅ Vector search index "${name}" is set up (status: ${index.status}).`);
+        }
+        await collection.createIndex({ userId: 1, source: 1 });
+    })()
+        .catch((error) => {
+            console.error(
+                `❌ Could not create the vector search index automatically: ${error.message}\n` +
+                "   Make sure the cluster is MongoDB Atlas and the database user can manage search indexes " +
+                '(e.g. role "readWriteAnyDatabase"), or run "npm run setup:rag".'
+            );
+            throw error;
+        })
+        .finally(() => {
+            ensuring = null;
+        });
+    return ensuring;
+}
+
+/**
+ * Throws a clear 503 if the vector index is missing, out of date or still
+ * building. If it's missing or wrong, it is created/fixed on the spot.
+ * A good result is cached for 10 minutes.
+ */
 export async function assertVectorIndexReady() {
     if (Date.now() - indexCheckedAt < INDEX_CHECK_TTL_MS) return;
-    const indexes = await getVectorCollection().listSearchIndexes(RAG_CONFIG.vectorIndexName).toArray();
-    const problems = describeIndexProblems(indexes[0]);
-    if (problems.length) {
-        console.error(`❌ Vector index problem: ${problems.join("; ")}. Run "npm run setup:rag" in /backend.`);
-        throw new HttpError(503, "PDF search is not set up on the server yet. Please try again later.", "VECTOR_INDEX_NOT_READY");
+    let index;
+    try {
+        [index] = await getVectorCollection().listSearchIndexes(RAG_CONFIG.vectorIndexName).toArray();
+    } catch (error) {
+        console.error(`❌ Could not read vector search indexes: ${error.message}`);
+        throw new HttpError(503, "PDF search is unavailable right now. Please try again later.", "VECTOR_INDEX_UNAVAILABLE");
+    }
+    const definitionProblems = index ? describeIndexProblems({ ...index, queryable: true }) : ["missing"];
+
+    if (definitionProblems.length) {
+        console.warn(`⚠️ Vector index problem (${definitionProblems.join("; ")}). Fixing it now...`);
+        await ensureVectorIndex().catch(() => {});
+        throw new HttpError(503, "PDF search is being set up. Please try again in a minute.", "VECTOR_INDEX_BUILDING");
+    }
+    if (index.queryable === false || (index.status && index.status !== "READY")) {
+        throw new HttpError(503, "PDF search is being set up. Please try again in a minute.", "VECTOR_INDEX_BUILDING");
     }
     indexCheckedAt = Date.now();
 }
