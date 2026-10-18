@@ -33,7 +33,7 @@
 | **PDF Study (RAG)** | Upload PDFs and ask questions about them. Answers are based only on your documents and cite the **file name and page number**. You can search all your PDFs or pick one, and remove PDFs you no longer need. |
 | **Deep Research** | Searches the web with **Tavily** (advanced depth, top 5 sources) and has Gemini write a structured report with numbered citations and a Sources list. Reports can be downloaded as Markdown. |
 
-Every conversation is saved per mode and can be reopened or deleted from the **History** sidebar.
+Every conversation is saved per mode and can be reopened or deleted from the **History** sidebar. Each mode keeps its own conversation, loading state and errors.
 
 ### 📚 Learning Tools
 - **AI Quiz Generator**: 5 multiple-choice questions on any topic, scored in the browser, with an explanation for each answer.
@@ -57,8 +57,9 @@ Every conversation is saved per mode and can be reopened or deleted from the **H
 | Layer | Technologies |
 |---|---|
 | **Frontend** | React 19, React Router 7 (lazy-loaded pages), Axios, socket.io-client, react-markdown + remark-gfm, react-syntax-highlighter, react-hot-toast, react-icons, Vanta.js (three.js) |
-| **Backend** | Node.js 20+, Express 5, Socket.IO 4, Mongoose 8, JSON Web Tokens, bcryptjs, Multer, pdf-parse, Nodemailer, express-rate-limit, Helmet |
+| **Backend** | Node.js 20+, Express 5, Socket.IO 4, Mongoose 8, JSON Web Tokens, bcryptjs, Multer, pdf-parse, express-rate-limit, Helmet |
 | **Database** | MongoDB Atlas (app data) + **Atlas Vector Search** (PDF embeddings) |
+| **Email** | Brevo transactional email API (Nodemailer SMTP as a local fallback) |
 | **AI** | Google Gen AI SDK (`@google/genai`), LangChain.js (`RecursiveCharacterTextSplitter`, `MongoDBAtlasVectorSearch`), Tavily search API |
 | **Testing** | Node.js built-in test runner, Supertest, socket.io-client |
 | **Hosting** | Vercel (frontend), Render (backend), MongoDB Atlas |
@@ -100,7 +101,7 @@ flowchart LR
 
     GEM["Google Gemini API"]
     TAV["Tavily Search API"]
-    SMTP["SMTP server<br/>Gmail"]
+    MAIL["Brevo email API"]
 
     UI --> AX --> MW --> AUTH --> R --> C --> S
     UI --> SC <--> IO
@@ -109,7 +110,7 @@ flowchart LR
     IO --> DB
     S --> GEM
     S --> TAV
-    S --> SMTP
+    S --> MAIL
 ```
 
 ### Layers
@@ -141,14 +142,14 @@ sequenceDiagram
     participant F as Frontend
     participant B as Backend
     participant DB as MongoDB
-    participant M as SMTP server
+    participant M as Brevo email API
 
     U->>F: Name, email, password
     F->>B: POST /api/auth/register
     B->>B: Validate email domain and password rules
     B->>DB: Save pending user with bcrypt hash, expires in 24 h
     B->>DB: Save SHA-256 hash of 6-digit code, expires in 10 min
-    B->>M: Send code with Nodemailer
+    B->>M: Send code over HTTPS
     U->>F: Enter code
     F->>B: POST /api/auth/verify
     B->>DB: Check code, max 5 attempts, single use
@@ -181,6 +182,8 @@ flowchart LR
 2. **Chunk:** LangChain's `RecursiveCharacterTextSplitter` cuts each page into ~800-character pieces (about one paragraph) with 200 characters of overlap, splitting at paragraph, line, sentence and word boundaries in that order.
 3. **Embed:** chunks are embedded in batches of 100 (two batches at a time). Each vector is checked for the right size before anything is saved.
 4. **Store:** chunks are saved in `vectordocuments` with the text, the 768-dimension vector, the owner's `userId`, the file name and the page number. Uploading the same file again replaces the old copy.
+
+**The vector index** (`default` on `vectordocuments`: 768-dimension cosine vectors plus `userId` and `source` filter fields) is created automatically when the server starts, and updated if its settings don't match. If a request arrives while Atlas is still building it, the user is asked to try again in a minute.
 
 **Asking a question (retrieval + generation)**
 
@@ -314,7 +317,7 @@ All endpoints except sign-up, login and health checks require `Authorization: Be
 ```text
 NowledgeHub/
 ├── backend/
-│   ├── server.js              # Starts HTTP + Socket.IO after connecting to MongoDB
+│   ├── server.js              # Connects to MongoDB, sets up the vector index, starts HTTP + Socket.IO
 │   ├── app.js                 # Express app: middleware, routes, error handling
 │   ├── config/
 │   │   ├── ai.js              # Models, RAG and research settings
@@ -328,16 +331,18 @@ NowledgeHub/
 │   ├── services/
 │   │   ├── gemini.js          # Gemini SDK wrapper: retries, timeouts, embeddings
 │   │   ├── aiService.js       # Chat, quiz and roadmap generation
-│   │   ├── vectorStore.js     # Atlas Vector Search + index checks
+│   │   ├── vectorStore.js     # Atlas Vector Search + automatic index setup
 │   │   ├── historyService.js  # Saving and loading conversations
-│   │   ├── otpService.js      # Verification codes + Nodemailer
+│   │   ├── otpService.js      # Verification codes
+│   │   ├── emailService.js    # Brevo API (Nodemailer SMTP fallback)
 │   │   ├── roomService.js     # Room codes, membership, messages
 │   │   └── metricsService.js  # Pipeline metrics
 │   ├── sockets/chatSocket.js  # Real-time room events
 │   ├── utils/                 # pdf parsing, retry/backoff, JWT, validation
 │   ├── scripts/
 │   │   ├── checkGemini.js     # npm run check:gemini
-│   │   └── setupRAG.js        # npm run setup:rag
+│   │   ├── checkEmail.js      # npm run check:email
+│   │   └── setupRAG.js        # npm run setup:rag (optional manual index setup)
 │   └── test/                  # Automated tests + sample PDF
 └── frontend/
     └── src/
@@ -362,12 +367,14 @@ Copy `backend/.env.example` to `backend/.env`.
 | `FRONTEND_URL` | ✅ | Allowed frontend origin(s), comma-separated |
 | `GEMINI_API_KEY` | ✅ | Key from Google AI Studio |
 | `TAVILY_API_KEY` | For research | Tavily API key |
-| `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS` | For email | SMTP settings (Gmail: `smtp.gmail.com`, port 587, App Password) |
+| `BREVO_API_KEY` | For email | Brevo API key with the *Transactional email: All* permission |
+| `EMAIL_FROM` / `EMAIL_FROM_NAME` | For email | Verified Brevo sender address and display name (default `NowledgeHub`) |
+| `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS` | Optional | SMTP fallback used only when `BREVO_API_KEY` is empty (e.g. Gmail with an App Password, locally) |
 | `PORT` | | Default `5000` |
 | `GEMINI_CHAT_MODEL` | | Default `gemini-3.6-flash` |
 | `GEMINI_FAST_MODEL` | | Default `gemini-3.5-flash-lite` |
 | `GEMINI_EMBEDDING_MODEL` | | Default `gemini-embedding-2` |
-| `EMBEDDING_DIMENSIONS` | | Default `768` (re-run `setup:rag` after changing) |
+| `EMBEDDING_DIMENSIONS` | | Default `768` (the index is updated automatically; re-upload PDFs after changing) |
 | `GEMINI_TIMEOUT_MS` / `GEMINI_MAX_RETRIES` | | Default `60000` / `3` |
 | `RAG_MIN_SCORE` / `RAG_MAX_CHUNKS` | | Default `0.5` / `2000` |
 
@@ -383,7 +390,7 @@ Frontend: `frontend/.env` with `REACT_APP_API_URL=http://localhost:5000`.
 - Node.js 20 or newer
 - A MongoDB Atlas cluster (Vector Search works on the free tier)
 - A Gemini API key and a Tavily API key
-- A Gmail account with an App Password (for verification emails)
+- A free Brevo account with a verified sender and an API key (for verification emails)
 
 ### Backend
 ```bash
@@ -391,10 +398,9 @@ cd backend
 npm install
 cp .env.example .env       # fill in your values
 npm run check:gemini       # tests your Gemini key and the three models
-npm run setup:rag          # creates the Atlas vector index (once)
-npm run dev                # http://localhost:5000
+npm run dev                # http://localhost:5000 (creates the Atlas vector index on first start)
 ```
-In development, if `EMAIL_USER`/`EMAIL_PASS` are not set, verification codes are printed in the backend console instead of being emailed.
+In development, if no email provider is configured, verification codes are printed in the backend console instead of being emailed.
 
 ### Frontend
 ```bash
@@ -411,7 +417,8 @@ npm start                  # http://localhost:3000
 | `npm run dev` | Start with auto-restart on file changes |
 | `npm test` | Run the test suite |
 | `npm run check:gemini` | Check the API key, chat model, fast model and embeddings |
-| `npm run setup:rag` | Create or update the vector index; `-- --purge` removes chunks that can't be searched |
+| `npm run check:email -- you@example.com` | Send a test email with the configured provider |
+| `npm run setup:rag` | Optional manual index setup; `-- --purge` deletes old chunks that can't be searched |
 
 ---
 
@@ -422,13 +429,14 @@ cd backend
 npm test
 ```
 
-35 automated tests cover:
+39 automated tests cover:
 - retry and exponential backoff behaviour,
 - the Gemini wrapper (request format, error handling, embedding batching and validation),
 - quiz and roadmap validation,
 - page-by-page PDF parsing and chunk metadata,
 - authentication and JWT handling, input validation, rate limiting, CORS,
-- Socket.IO authentication.
+- Socket.IO authentication,
+- the email service (provider selection, Brevo request, error handling and retries).
 
 ---
 
@@ -443,8 +451,8 @@ npm test
 - Root directory: `backend` · Build: `npm install` · Start: `npm start`
 - Add the variables from `.env.example`; set `FRONTEND_URL` to the Vercel URL.
 - In MongoDB Atlas → Network Access, allow Render's outbound IPs (or `0.0.0.0/0`).
-- Run `npm run setup:rag` once against the production database.
-- **Email on Render:** free Render web services block outbound SMTP ports (25, 465, 587), so Nodemailer can't reach Gmail from a free instance. Use a paid instance, or an email provider with an HTTP API.
+- The vector index is created on the first start. The MongoDB user needs the **Read and write to any database** role (or Atlas admin) so it can create search indexes; the log shows `🆕 Created vector search index "default"`.
+- **Email:** verification emails are sent through the Brevo API over HTTPS, because free Render web services block outbound SMTP ports (25, 465, 587). Set `BREVO_API_KEY`, `EMAIL_FROM` and `EMAIL_FROM_NAME`.
 
 ---
 
